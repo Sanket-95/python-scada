@@ -1,0 +1,7 @@
+{
+  "brand": "mitsubishi",
+  "ip": "192.168.3.13",
+  "port": 5003,
+  "plcType": "Q",
+  "commType": "binary"
+}

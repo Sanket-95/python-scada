@@ -202,10 +202,10 @@ bug, or a wrong port — not a wrong protocol.
   and given a continuous slow Y-axis rotation (`RotatingGroup`, ~0.8 rad/s) so a
   load reads clearly from a distance.
 - **Sidebar nav**: grouped under "MIMIC SCREEN CONFIGURATION" in a fixed order
-  (System Config, Tank Partitions, Cross Trolley, Wagon Location Tags, Mimic Page
-  Config, Station Info), with items genuinely indented (the old `sub: true` flag on
-  nav items was dead code — didn't render any differently — now it actually
-  indents).
+  (General Config, Mimic Page Config, System Config, Tank Partitions, Cross
+  Trolley, Wagon Location Tags, Station Info, Col. Config), with items genuinely
+  indented (the old `sub: true` flag on nav items was dead code — didn't render any
+  differently — now it actually indents).
 
 ## Gotchas (don't repeat these)
 

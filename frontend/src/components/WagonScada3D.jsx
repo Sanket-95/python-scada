@@ -2126,6 +2126,7 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               stations={stations}
               colConfig={stationColCfg}
               stationNames={buildNamesArray(stationNames, stations.length)}
+              tankTags={tankTags}
               onBack={() => setView(lastSceneView)}
             />
           )}

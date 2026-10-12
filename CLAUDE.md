@@ -217,6 +217,17 @@ bug, or a wrong port — not a wrong protocol.
   renamed/reordered multiple times on request; the nav `id`s and each page's own
   on-screen title have not changed — use the `id` or the page's own title to
   identify a page in code, never the current sidebar label text.
+- **Column Config page** (`StationColumnConfigPage.jsx`, `StationInfoPage.jsx`):
+  the list of rows is a *report column* schema (Wagon/Operation/Station No were
+  removed from `DEFAULT_STATION_COLS` on request — Station Name is now the first
+  entry), used to build a demo/mock report table in `StationInfoPage.jsx` (most of
+  that page — current, pH, alarms — is still hardcoded demo data, not live). The
+  table header for each row's own name field was renamed from "COLUMN NAME" to
+  "STATION NAME" (cosmetic only, same `label` field). The rendered **Station Name**
+  *column value* in that report now sources from Mimic Page Config's label first
+  (`tankTags[id]?.label` — the same common/canonical source
+  `StationNamesConfigPage.jsx` uses), falling back to the older separate
+  `stationNames` array, then a plain `Station N` default.
 
 ## Gotchas (don't repeat these)
 

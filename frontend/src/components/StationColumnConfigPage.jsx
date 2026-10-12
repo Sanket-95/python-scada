@@ -2,9 +2,6 @@ import { useState, useRef } from 'react';
 
 // ── Default column definitions — no fixed/width, fully deletable ──────────────
 export const DEFAULT_STATION_COLS = [
-  { id: 'wagon',  label: 'Wagon',       enabled: true, dataType: '',       tagName: '', address: '' },
-  { id: 'op',     label: 'Operation',   enabled: true, dataType: '',       tagName: '', address: '' },
-  { id: 'stNo',   label: 'Station No',  enabled: true, dataType: '',       tagName: '', address: '' },
   { id: 'stName', label: 'Station Name',enabled: true, dataType: 'STRING', tagName: '', address: '' },
   { id: 'loadNo', label: 'Load No',     enabled: true, dataType: 'INT',    tagName: '', address: '' },
   { id: 'dur',    label: 'Duration',    enabled: true, dataType: 'TIME',   tagName: '', address: '' },
@@ -207,7 +204,7 @@ export default function StationColumnConfigPage({ colConfig, onSave, onBack }) {
           display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap',
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 180px', minWidth: 140 }}>
-            <label style={{ fontSize: 9, color: T.tealBr, letterSpacing: 1.5, fontWeight: 700 }}>COLUMN NAME *</label>
+            <label style={{ fontSize: 9, color: T.tealBr, letterSpacing: 1.5, fontWeight: 700 }}>STATION NAME *</label>
             <input
               value={newCol.label}
               onChange={e => setNewCol(v => ({ ...v, label: e.target.value }))}
@@ -286,7 +283,7 @@ export default function StationColumnConfigPage({ colConfig, onSave, onBack }) {
               <TH w={28}>⠿</TH>
               <TH w={54}>SHOW</TH>
               <TH w={76}>MOVE</TH>
-              <TH w={180} align="left">COLUMN NAME</TH>
+              <TH w={180} align="left">STATION NAME</TH>
               <TH w={80}>DATA TYPE</TH>
               <TH w={200} align="left">TAG NAME</TH>
               <TH w={200} align="left">PLC ADDRESS</TH>

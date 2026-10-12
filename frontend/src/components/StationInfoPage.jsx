@@ -60,7 +60,7 @@ const ALARMS = [
   'Communication Timeout: PLC Rack 2',
 ];
 
-export default function StationInfoPage({ wagons = [], stations = [], colConfig, stationNames = [], onBack }) {
+export default function StationInfoPage({ wagons = [], stations = [], colConfig, stationNames = [], tankTags = {}, onBack }) {
   const activeCols = (colConfig ?? DEFAULT_STATION_COLS).filter(c => c.enabled);
   const [page, setPage]       = useState(0);
   const [alarmIdx, setAlarmIdx] = useState(0);
@@ -293,7 +293,11 @@ export default function StationInfoPage({ wagons = [], stations = [], colConfig,
               const rowBg     = isActive ? T.active
                               : rowIdx % 2 === 0 ? T.rowEven : T.rowOdd;
 
-              const stName  = (stationNames[absIdx] || '') || `Station ${sn}`;
+              // Station Name is sourced from Mimic Page Configuration's own
+              // label first (the common/canonical source — see
+              // StationNamesConfigPage.jsx), falling back to the older
+              // separate name array, then a plain default.
+              const stName  = tankTags[String(sn)]?.label || stationNames[absIdx] || `Station ${sn}`;
               const loadNo  = st.hasLoad ? 50 + ((absIdx * 17) % 30) : 0;
               const durSecs = isActive ? 120 + ((absIdx * 37) % 7200) : (absIdx * 11) % 90;
               const client  = isActive ? 'Test' : 'NA';

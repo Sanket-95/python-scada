@@ -1392,7 +1392,7 @@ const NAV = [
   { id: 'wagon-tags',     icon: '⊟', label: 'Wagon Location Tags',         depth: 2 },
   { id: 'station-names',  icon: '✎', label: 'Station Info',               depth: 2 },
   { type: 'sep', label: 'STATION COLUMNS' },
-  { id: 'station-cols',   icon: '≡', label: 'Col. Config' },
+  { id: 'station-cols',   icon: '≡', label: 'StationWise Info Config' },
   { type: 'sep', label: 'DIAGNOSTICS' },
   { id: 'plc-test',      icon: '⚡', label: 'PLC Connection Test' },
   { type: 'sep', label: 'DEPLOY' },

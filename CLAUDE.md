@@ -210,7 +210,7 @@ bug, or a wrong port — not a wrong protocol.
   Configuration** (nav id `tags-config` — the old "Mimic Page Config",
   `TankTagsPage.jsx`, "MIMIC PAGE CONFIGURATION"), Tank Partitions, Cross Trolley,
   Wagon Location Tags, and Station Info are all depth 2, nested under Mimic
-  Config. **Col. Config** (nav id `station-cols` — `StationColumnConfigPage.jsx`,
+  Config. **StationWise Info Config** (nav id `station-cols` — `StationColumnConfigPage.jsx`,
   "STATION INFO — COLUMN CONFIGURATION") was deliberately pulled out of that group
   into its own separate top-level section ("STATION COLUMNS"), not nested under
   Mimic Config — kept it a standalone route on request. Sidebar *labels* have been

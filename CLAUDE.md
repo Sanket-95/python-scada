@@ -227,7 +227,14 @@ bug, or a wrong port — not a wrong protocol.
   *column value* in that report now sources from Mimic Page Config's label first
   (`tankTags[id]?.label` — the same common/canonical source
   `StationNamesConfigPage.jsx` uses), falling back to the older separate
-  `stationNames` array, then a plain `Station N` default.
+  `stationNames` array, then a plain `Station N` default. The page's own table was
+  later stripped down to a single editable column (just the row's name/label) on
+  request — the drag handle, Show toggle, Move arrows, Data Type, Tag Name, PLC
+  Address, Status, and Del columns were all removed from the UI. The underlying
+  per-row data shape (`enabled`/`dataType`/`tagName`/`address`) is unchanged and
+  still read by `StationInfoPage.jsx`'s rendering switch — only this page's editing
+  UI for those fields is gone, so a row can no longer be deleted, reordered, or
+  hidden/shown from here (only "↺ Reset Defaults" resets the whole list).
 
 ## Gotchas (don't repeat these)
 

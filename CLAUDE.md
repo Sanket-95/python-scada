@@ -207,7 +207,7 @@ bug, or a wrong port — not a wrong protocol.
   CONFIGURATION": **General Config** (depth 1) and **Mimic Config** (depth 1, nav
   id `config` — the old "System Config"/"Configuration", `ConfigPanel.jsx`,
   "PROTOVEC SCADA — SYSTEM CONFIGURATION") are siblings; **Mimic Station
-  Configuration** (nav id `tags-config` — the old "Mimic Page Config",
+  Config** (nav id `tags-config` — the old "Mimic Page Config",
   `TankTagsPage.jsx`, "MIMIC PAGE CONFIGURATION"), Tank Partitions, Cross Trolley,
   Wagon Location Tags, and Station Info are all depth 2, nested under Mimic
   Config. **StationWise Info Config** (nav id `station-cols` — `StationColumnConfigPage.jsx`,

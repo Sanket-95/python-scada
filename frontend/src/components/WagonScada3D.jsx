@@ -1386,7 +1386,7 @@ const NAV = [
   { type: 'sep', label: 'MIMIC SCREEN CONFIGURATION' },
   { id: 'general-config', icon: '⚑', label: 'General Config',             depth: 1 },
   { id: 'config',         icon: '⚙', label: 'Mimic Config',                depth: 1 },
-  { id: 'tags-config',    icon: '⊞', label: 'Mimic Station Configuration', depth: 2 },
+  { id: 'tags-config',    icon: '⊞', label: 'Mimic Station Config',         depth: 2 },
   { id: 'tank-partitions',icon: '▥', label: 'Tank Partitions',             depth: 2 },
   { id: 'cross-trolley',  icon: '⇄', label: 'Cross Trolley',               depth: 2 },
   { id: 'wagon-tags',     icon: '⊟', label: 'Wagon Location Tags',         depth: 2 },

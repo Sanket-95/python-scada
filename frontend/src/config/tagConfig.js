@@ -122,6 +122,22 @@ export function getStationLoadNumbers(userCfg) {
   return userCfg.stationLoadNumbers || {};
 }
 
+// ── Station Column Config's user-added custom columns ────────────────────────
+// StationColumnConfigPage.jsx lets the user add arbitrary extra columns beyond
+// the fixed Station No/Name/Load No Tag ones, each with its own data type.
+// Source of truth: userCfg.stationExtraCols -> [{id, name, dataType}, ...]
+// (column definitions) and userCfg.stationExtraValues -> {stationId: {colId:
+// address}} (each station's configured PLC address for that column). Live
+// values are published the same way as Load Number — see
+// station_extra_col_tag_name in plc_publisher.py.
+export function getStationExtraCols(userCfg) {
+  return userCfg.stationExtraCols || [];
+}
+
+export function getStationExtraValues(userCfg) {
+  return userCfg.stationExtraValues || {};
+}
+
 // Returns { lineLabel, wagons: [{id, wagonIdx}] } groups for display
 export function getWagonsByLine(userCfg) {
   let wId = 1;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 
 // This page's own fixed report-column list — no longer driven by
 // StationColumnConfigPage.jsx's colConfig, since that page now holds a
@@ -57,9 +57,17 @@ function saveTablePrefs(prefs) {
 
 export default function StationInfoPage({
   wagons = [], stations = [], colConfig, stationNames = [], tankTags = {},
-  stationParamValues = {}, loadNumberValues = {}, connected = false, onBack,
+  stationParamValues = {}, loadNumberValues = {}, extraCols = [], extraLiveValues = {},
+  connected = false, onBack,
 }) {
-  const activeCols = INFO_COLS;
+  // Fixed columns plus whatever custom columns were added on the Column
+  // Config page (StationColumnConfigPage.jsx's "+ Add Column") — each
+  // reflects that same column's live PLC value below (see the cell()
+  // default case).
+  const activeCols = useMemo(
+    () => [...INFO_COLS, ...extraCols.map(c => ({ id: c.id, label: c.name }))],
+    [extraCols]
+  );
   const [page, setPage]       = useState(0);
   const [tablePrefs, setTablePrefs] = useState(loadTablePrefs);
   const { paginationOn, pageSize } = tablePrefs;
@@ -360,9 +368,19 @@ export default function StationInfoPage({
                         {phPV ? `${phPV.value} ${phPV.unit}`.trim() : '—'}
                       </td>
                     );
-                  default:
-                    // Custom user-added column — shows tag name as placeholder until PLC connected
-                    return <td key={id} style={tdBase({ color: T.textDim, fontStyle: 'italic' })}>—</td>;
+                  default: {
+                    // Custom user-added column (Column Config page's "+ Add
+                    // Column") — live value from extraLiveValues, keyed the
+                    // same way plc_publisher.py publishes it
+                    // (STATION_<id>_X_<colId>). "—" until a PLC is connected
+                    // and that station has an address configured for it.
+                    const val = extraLiveValues[String(sn)]?.[id];
+                    return (
+                      <td key={id} style={tdBase({ color: val != null ? T.textWh : T.textDim })}>
+                        {val != null ? val : '—'}
+                      </td>
+                    );
+                  }
                 }
               };
 

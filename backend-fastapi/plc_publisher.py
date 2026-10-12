@@ -171,6 +171,29 @@ def _load_number_tags(saved_cfg: dict) -> list[tuple[str, str, str]]:
     return out
 
 
+def station_extra_col_tag_name(station_id, col_id) -> str:
+    """The published tag NAME for one user-added custom column's per-station
+    address (Station Info Column Config page's "+ Add Column"). Shared
+    convention with the frontend (WagonScada3D.jsx's stationExtraLiveValues),
+    which must look values up under this exact name."""
+    return f"STATION_{station_id}_X_{col_id}"
+
+
+def _station_extra_col_tags(saved_cfg: dict) -> list[tuple[str, str, str]]:
+    """[(tagName, plcAddress, dataType), ...] for every station's configured
+    custom-column address (Column Config page's user-added columns) that has
+    an address set. dataType comes from that column's own definition."""
+    cols_by_id = {c.get("id"): c for c in (saved_cfg.get("stationExtraCols") or [])}
+    out = []
+    for station_id, addrs in (saved_cfg.get("stationExtraValues") or {}).items():
+        for col_id, address in (addrs or {}).items():
+            addr = (address or "").strip()
+            col = cols_by_id.get(col_id)
+            if addr and col:
+                out.append((station_extra_col_tag_name(station_id, col_id), addr, col.get("dataType") or "float32"))
+    return out
+
+
 # TEMP DEBUG — prints every poll's PLC connection + each tag's live read to
 # the console (this shows up in the exe's own console window too, since it's
 # built without --noconsole), so values can be eyeballed live against
@@ -190,7 +213,8 @@ def _poll_once(store: TagStore) -> None:
             + _lift_tags(user_cfg)
             + _mode_tags(user_cfg)
             + _station_param_tags(user_cfg)
-            + _load_number_tags(user_cfg))
+            + _load_number_tags(user_cfg)
+            + _station_extra_col_tags(user_cfg))
     if not tags:
         return
 

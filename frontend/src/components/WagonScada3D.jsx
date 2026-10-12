@@ -24,7 +24,7 @@ import {
   loadPageSelectionFromServer, pruneToCatalog, isPageEnabled,
 } from '../config/pageSelection';
 import { isRunningInsideExe } from '../config/runtimeInfo';
-import { getTankTags, getWagonTags, getStationParams, getStationLoadNumbers } from '../config/tagConfig';
+import { getTankTags, getWagonTags, getStationParams, getStationLoadNumbers, getStationExtraCols, getStationExtraValues } from '../config/tagConfig';
 import barralImg from '../../barral.png';
 import {
   loadUserConfig, saveUserConfig, buildSimConfig,
@@ -1633,6 +1633,18 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   const stationParams = useMemo(() => getStationParams(userCfg), [userCfg]);
   const stationParamLabels = useMemo(() => userCfg.stationParamLabels || {}, [userCfg]);
   const stationLoadNumbers = useMemo(() => getStationLoadNumbers(userCfg), [userCfg]);
+  const stationExtraCols  = useMemo(() => getStationExtraCols(userCfg), [userCfg]);
+  const stationExtraAddrs = useMemo(() => getStationExtraValues(userCfg), [userCfg]);
+
+  // Station Info Column Config's user-added custom columns — both the
+  // column definitions and every station's configured address for them are
+  // saved together from that page's one Save button.
+  const handleSaveStationExtra = (newCols, newAddrs) => {
+    const newCfg = { ...userCfg, stationExtraCols: newCols, stationExtraValues: newAddrs };
+    saveUserConfig(newCfg);
+    saveUserConfigToFile(newCfg);
+    setUserCfg(newCfg);
+  };
 
   // Tank Partitions / Cross Trolleys / Station Columns / Station Names were
   // previously localStorage-only, with no backend file at all — so none of
@@ -1877,6 +1889,26 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
     });
     return out;
   }, [stationLoadNumbers, grpcTags]);
+
+  // Live value per station per user-added custom column (Station Info
+  // Column Config page's "+ Add Column"), keyed the same way
+  // plc_publisher.py publishes them (station_extra_col_tag_name:
+  // "STATION_<id>_X_<colId>") — {stationId: {colId: value}}. A station with
+  // no address configured for a given column simply isn't in this map, so
+  // StationInfoPage.jsx's cell falls back to "—".
+  const stationExtraLiveValues = useMemo(() => {
+    const out = {};
+    Object.entries(stationExtraAddrs).forEach(([stationId, addrs]) => {
+      Object.entries(addrs || {}).forEach(([colId, address]) => {
+        if (!address) return;
+        const live = grpcTags[`STATION_${stationId}_X_${colId}`];
+        if (!live) return;
+        out[stationId] = out[stationId] || {};
+        out[stationId][colId] = live.value;
+      });
+    });
+    return out;
+  }, [stationExtraAddrs, grpcTags]);
 
   // Tank tag values mirror simulation station hasLoad — future: replaced by gRPC writes
   const tagValues = useMemo(() => {
@@ -2144,6 +2176,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               tankTags={tankTags}
               stationParamValues={stationParamValues}
               loadNumberValues={loadNumberValues}
+              extraCols={stationExtraCols}
+              extraLiveValues={stationExtraLiveValues}
               connected={grpcConnected}
               onBack={() => setView(lastSceneView)}
             />
@@ -2153,7 +2187,10 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               colConfig={stationColCfg}
               tankTags={tankTags}
               stationLoadNumbers={stationLoadNumbers}
+              extraCols={stationExtraCols}
+              extraAddrs={stationExtraAddrs}
               onSave={handleSaveStationCols}
+              onSaveExtra={handleSaveStationExtra}
               onBack={() => setView('config')}
             />
           )}

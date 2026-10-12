@@ -238,12 +238,34 @@ bug, or a wrong port — not a wrong protocol.
   is now
   just `[]` (originally seeded Wagon/Operation/Station No/Station Name/Load No/
   Duration/Client Name/Part Name/Temp PV/Temp SV/Current PV/Current SV/pH PV — all
-  removed over several requests). There is **no add, delete, reorder,
-  hide/show, reset, or edit** on this page anymore (all removed on request,
-  including one round that was reverted — see git history on
-  `StationColumnConfigPage.jsx` before re-adding any of them) — "✔ Save Column
-  Config" just persists the current tankTags-derived snapshot into
-  `stationColCfg`. **`StationInfoPage.jsx` no longer uses `colConfig` as a
+  removed over several requests). The **STATION NO / STATION NAME / LOAD NO
+  TAG** columns themselves still have **no add, delete, reorder, hide/show,
+  reset, or edit** (all removed on request, including one round that was
+  reverted — see git history on `StationColumnConfigPage.jsx` before
+  re-adding any of them) — "✔ Save Column Config" just persists the current
+  tankTags-derived snapshot into `stationColCfg`, unchanged. **On top of
+  that fixed set, "+ Add Column" (re-added later) lets the user define any
+  number of extra columns** — own name + a `TAG_DATA_TYPES` data type — each
+  rendered as its own column with a per-station **editable** PLC-address
+  input (empty by default) plus a small "start address" box in the column
+  header: typing a start address and leaving it (`onBlur`) auto-fills every
+  station's address for that column incrementally (same letters-prefix +
+  zero-padded-number scheme as `StationNamesConfigPage.jsx`'s Load Number
+  array fill), after which any individual row can still be hand-edited. A
+  column can be removed with the × next to its name. Source of truth:
+  `userCfg.stationExtraCols` (`[{id, name, dataType}, ...]`) +
+  `userCfg.stationExtraValues` (`{stationId: {colId: address}}`), both saved
+  together via `onSaveExtra` from the same Save button. The backend
+  publishes each configured one under `STATION_<id>_X_<colId>`
+  (`station_extra_col_tag_name` in `plc_publisher.py` — frontend and backend
+  must agree on this exact naming, same convention as `station_param_tag_name`/
+  `station_load_number_tag_name`), read with that column's own data type.
+  `StationInfoPage.jsx` reflects these same columns (appended after the fixed
+  `INFO_COLS`) with their live value from `extraLiveValues`
+  (`{stationId: {colId: value}}`, built in `WagonScada3D.jsx` from
+  `grpcTags` — "—" until a PLC is connected and that station has an address
+  configured for that column). **`StationInfoPage.jsx` no longer uses
+  `colConfig` as a
   column schema** (that stopped matching once `stationColCfg` became a
   per-station list rather than a list of report columns) — it now has its own
   fixed `INFO_COLS` list (Wagon, Operation, Station No, Station Name, Load No,

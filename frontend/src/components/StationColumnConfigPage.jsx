@@ -1,9 +1,10 @@
 import { useState } from 'react';
 
-// ── Default column definitions — no fixed/width, fully deletable ──────────────
+// ── Default column definitions ─────────────────────────────────────────────
 // Emptied on request (was: Station Name, Load No, Duration, Client Name, Part
-// Name, Temp PV, Temp SV, Current PV, Current SV, pH PV) — page now starts
-// blank; rows are added via "+ Add" only.
+// Name, Temp PV, Temp SV, Current PV, Current SV, pH PV). The Add/Reset
+// controls were removed too, so this page now only edits whatever rows are
+// already in a saved `stationColCfg` — it can no longer create or reset any.
 export const DEFAULT_STATION_COLS = [];
 
 const T = {
@@ -27,20 +28,10 @@ const inp = (extra = {}) => ({
 // no longer exposes #, Show, Move, Data Type, Tag Name, PLC Address, Status,
 // or Del as editable UI — only the Station Name label, per request.
 export default function StationColumnConfigPage({ colConfig, onSave, onBack }) {
-  const [draft,   setDraft]   = useState(() => JSON.parse(JSON.stringify(colConfig)));
-  const [newName, setNewName] = useState('');
+  const [draft, setDraft] = useState(() => JSON.parse(JSON.stringify(colConfig)));
 
   const update = (id, field, val) =>
     setDraft(d => d.map(c => c.id === id ? { ...c, [field]: val } : c));
-
-  const addRow = () => {
-    if (!newName.trim()) return;
-    setDraft(d => [...d, {
-      id: `col_${Date.now()}`, enabled: true,
-      label: newName.trim(), dataType: '', tagName: '', address: '',
-    }]);
-    setNewName('');
-  };
 
   const TH = ({ children, w, align = 'center' }) => (
     <th style={{
@@ -90,47 +81,6 @@ export default function StationColumnConfigPage({ colConfig, onSave, onBack }) {
         </div>
       </div>
 
-      {/* ── Toolbar ── */}
-      <div style={{
-        background: '#F4F5FA', borderBottom: `1px solid ${T.border}`,
-        padding: '8px 20px', flexShrink: 0,
-        display: 'flex', alignItems: 'center', gap: 10,
-      }}>
-        <input
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          placeholder="New station name, e.g. Voltage PV"
-          style={{ ...inp(), width: 240 }}
-          onFocus={e => e.target.style.borderColor = T.ok}
-          onBlur={e  => e.target.style.borderColor = T.border}
-          onKeyDown={e => e.key === 'Enter' && addRow()}
-        />
-        <button
-          onClick={addRow}
-          disabled={!newName.trim()}
-          style={{
-            padding: '7px 18px', fontSize: 12, fontWeight: 700,
-            cursor: newName.trim() ? 'pointer' : 'default',
-            background: newName.trim() ? T.ok : '#E8F5E9',
-            border: `2px solid ${T.ok}`, color: newName.trim() ? '#001800' : T.textDim,
-            borderRadius: 6, fontFamily: 'inherit', letterSpacing: 0.5,
-            opacity: newName.trim() ? 1 : 0.6,
-            boxShadow: newName.trim() ? `0 0 10px ${T.ok}44` : 'none',
-          }}
-        >+ Add</button>
-
-        <div style={{ width: 1, height: 26, background: T.border }} />
-
-        <button
-          onClick={() => setDraft(JSON.parse(JSON.stringify(DEFAULT_STATION_COLS)))}
-          style={{
-            padding: '7px 16px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
-            background: T.cardBg, border: `1.5px solid ${T.border}`,
-            color: T.textDim, borderRadius: 5, fontFamily: 'inherit',
-          }}
-        >↺ Reset Defaults</button>
-      </div>
-
       {/* ── Table ── */}
       <div style={{ flex: 1, overflow: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -164,7 +114,7 @@ export default function StationColumnConfigPage({ colConfig, onSave, onBack }) {
                   padding: '40px', textAlign: 'center',
                   color: T.textDim, fontSize: 13, fontStyle: 'italic',
                 }}>
-                  No entries — type a name above and click <strong style={{ color: T.ok }}>+ Add</strong>
+                  No entries configured
                 </td>
               </tr>
             )}

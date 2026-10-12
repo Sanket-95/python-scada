@@ -233,13 +233,15 @@ bug, or a wrong port — not a wrong protocol.
   Address, Status, and Del columns were all removed from the UI. The underlying
   per-row data shape (`enabled`/`dataType`/`tagName`/`address`) is unchanged and
   still read by `StationInfoPage.jsx`'s rendering switch — only this page's editing
-  UI for those fields is gone, so a row can no longer be deleted, reordered, or
-  hidden/shown from here (only "↺ Reset Defaults" resets the whole list).
-  `DEFAULT_STATION_COLS` was later emptied to `[]` on request (it used to seed
-  Station Name/Load No/Duration/Client Name/Part Name/Temp PV/Temp SV/Current
-  PV/Current SV/pH PV) — the page and a fresh/reset config now start with zero
-  rows; rows exist only once added via "+ Add" or already present in a saved
-  `stationColCfg`.
+  UI for those fields is gone. `DEFAULT_STATION_COLS` was emptied to `[]` on
+  request (it used to seed Station Name/Load No/Duration/Client Name/Part
+  Name/Temp PV/Temp SV/Current PV/Current SV/pH PV). The toolbar's "+ Add"
+  (name input + button) and "↺ Reset Defaults" were also removed on request —
+  this page is now just Back/Save and whatever rows are already in a saved
+  `stationColCfg`'s label column; it can no longer add, delete, reorder,
+  hide/show, or reset any row from this screen. If a way to populate/clear this
+  list is needed again, it'll have to be re-added deliberately — don't assume
+  it still exists.
 
 ## Gotchas (don't repeat these)
 

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getTankIdsByLine, TAG_DATA_TYPES } from '../config/tagConfig';
 import ExcelTagImportModal from './ExcelTagImportModal';
+import { DEFAULT_STATION_NAMES } from './StationNamesConfigPage';
 
 // ── Semi-dark config theme (same as ConfigPanel) ──────────────────────────────
 const T = {
@@ -28,6 +29,19 @@ export default function TankTagsPage({ userCfg, tankTags, onSave, onBack }) {
 
   const setTag = (id, field, val) =>
     setDraft(d => ({ ...d, [id]: { ...d[id], [field]: val } }));
+
+  // Label is predefined, not user-editable here — it always mirrors the
+  // common Station Name source (StationNamesConfigPage.jsx's
+  // DEFAULT_STATION_NAMES), the same list StationNamesConfigPage and
+  // StationInfoPage key off of.
+  const stationNameFor = id => DEFAULT_STATION_NAMES[Number(id) - 1] ?? `Tank ${id}`;
+
+  const handleSave = () => {
+    const withNames = Object.fromEntries(
+      Object.entries(draft).map(([id, tag]) => [id, { ...tag, label: stationNameFor(id) }])
+    );
+    onSave(withNames);
+  };
 
   // Merge an Excel import's patch into the draft — only the fields that
   // were actually mapped+non-empty for each tank, leaving everything else
@@ -183,21 +197,15 @@ export default function TankTagsPage({ userCfg, tankTags, onSave, onBack }) {
                           />
                         </td>
 
-                        {/* Label */}
+                        {/* Label — predefined, not editable; common Station
+                            Name source (see stationNameFor above) */}
                         <td style={{ padding: '6px 12px', borderBottom: `1px solid ${T.border}44` }}>
-                          <input
-                            value={tag.label || ''}
-                            onChange={e => setTag(id, 'label', e.target.value)}
-                            style={{
-                              width: '100%', boxSizing: 'border-box',
-                              background: T.inputBg, color: T.inputText,
-                              border: `1.5px solid ${T.border}`, borderRadius: 4,
-                              padding: '5px 8px', fontSize: 12, fontFamily: "'Segoe UI', sans-serif",
-                              outline: 'none',
-                            }}
-                            onFocus={e => e.target.style.borderColor = T.accent}
-                            onBlur={e  => e.target.style.borderColor = T.border}
-                          />
+                          <div style={{
+                            width: '100%', boxSizing: 'border-box',
+                            background: T.cardBg, color: T.textLt,
+                            border: `1.5px solid ${T.border}66`, borderRadius: 4,
+                            padding: '5px 8px', fontSize: 12, fontFamily: "'Segoe UI', sans-serif",
+                          }}>{stationNameFor(id)}</div>
                         </td>
 
                         {/* PLC address — where the real tank-loaded bit is
@@ -277,7 +285,7 @@ export default function TankTagsPage({ userCfg, tankTags, onSave, onBack }) {
           color: T.textLt, cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',
         }}>← Back to Lines</button>
 
-        <button onClick={() => onSave(draft)} style={{
+        <button onClick={handleSave} style={{
           padding: '10px 32px', fontSize: 13, fontWeight: 700,
           background: T.yellow, border: 'none', color: '#FFFFFF',
           cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',

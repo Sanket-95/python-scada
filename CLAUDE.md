@@ -105,7 +105,15 @@ savedUserConfig.json / savedPlcConfig.json <--- config_store.py ------+
 - `components/PlcConnectionTestPage.jsx` — brand/IP/port form + live connection
   test + the "Quick Test EXE" generator (array-fill tag entry, build/download).
 - `components/TankTagsPage.jsx` — "MIMIC PAGE CONFIGURATION" — tag name/label/PLC
-  address/type per tank, plus Excel import (`ExcelTagImportModal.jsx`).
+  address/type per tank, plus Excel import (`ExcelTagImportModal.jsx`). The
+  **Label column is predefined and not editable** (on request) — it always
+  displays/saves `DEFAULT_STATION_NAMES[id-1]` (from
+  `StationNamesConfigPage.jsx`, the plant's real station names), computed in
+  `stationNameFor()` and force-written over whatever's in `draft` (including an
+  Excel import's own label column, if any) at Save time via `handleSave()`. This
+  IS the common Station Name source other pages read via `tankTags[id].label` —
+  don't reintroduce a free-text label input here, it would let the canonical name
+  drift from the predefined list.
 
 ## The Mitsubishi PLC saga (read before touching `mitsubishi_client.py`)
 
@@ -233,8 +241,12 @@ bug, or a wrong port — not a wrong protocol.
   Address, Status, and Del columns were all removed from the UI. The underlying
   per-row data shape (`enabled`/`dataType`/`tagName`/`address`) is unchanged and
   still read by `StationInfoPage.jsx`'s rendering switch — only this page's editing
-  UI for those fields is gone, so a row can no longer be deleted, reordered, or
-  hidden/shown from here (only "↺ Reset Defaults" resets the whole list).
+  UI for those fields is gone. The toolbar's "+ Add Column" (name input + Add
+  button) and "↺ Reset Defaults" button were also removed on request — this page
+  is now just Back/Save and a single editable Station Name column per row, with
+  **no** way left to add, delete, reorder, hide/show, or reset rows from this
+  screen (`DEFAULT_STATION_COLS` is still the seed for a *new/empty* saved
+  config, just no longer reachable from a button here).
 
 ## Gotchas (don't repeat these)
 

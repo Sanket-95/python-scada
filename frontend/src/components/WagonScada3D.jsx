@@ -1372,7 +1372,7 @@ const NAV = [
   { id: '2d',            icon: '▦', label: '2D View'       },
   { id: 'settings',      icon: '☰', label: 'Settings'      },
   { type: 'sep', label: 'MONITOR' },
-  { id: 'station-info',  icon: '⊡', label: 'Stations'      },
+  { id: 'station-info',  icon: '⊡', label: 'StationWise Info' },
   { id: 'tags',          icon: '◉', label: 'Tag Monitor'   },
   // Sequence requested: System Config, Tank Partitions, Cross Trolley,
   // Wagon Location Tags, Mimic Page Config, Station Info — labels renamed

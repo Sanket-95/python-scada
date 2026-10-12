@@ -2152,7 +2152,7 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
             <StationColumnConfigPage
               colConfig={stationColCfg}
               tankTags={tankTags}
-              loadNumberValues={loadNumberValues}
+              stationLoadNumbers={stationLoadNumbers}
               onSave={handleSaveStationCols}
               onBack={() => setView('config')}
             />

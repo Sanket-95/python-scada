@@ -21,7 +21,7 @@ const T = {
 // here is independently editable; Save just persists this list (with the
 // enabled/dataType/tagName/address fields StationInfoPage.jsx's rendering
 // switch still reads) into stationColCfg.
-export default function StationColumnConfigPage({ tankTags = {}, loadNumberValues = {}, onSave, onBack }) {
+export default function StationColumnConfigPage({ tankTags = {}, stationLoadNumbers = {}, onSave, onBack }) {
   const rows = useMemo(() => (
     Object.keys(tankTags)
       .map(Number)
@@ -30,17 +30,18 @@ export default function StationColumnConfigPage({ tankTags = {}, loadNumberValue
         id: `stn_${id}`,
         stationNo: id,
         label: tankTags[String(id)]?.label || `Tank ${id}`,
-        // Live PLC value of this station's Load Number tag (the address is
-        // configured on StationNamesConfigPage.jsx's "LOAD NUMBER" column —
-        // this just reflects what's actually arriving over the live tag
-        // WebSocket in a deployed exe, undefined until a PLC is connected).
-        loadNo: loadNumberValues[String(id)],
+        // This is a CONFIGURATION page, so it shows the configured PLC
+        // address/tag itself (set on StationNamesConfigPage.jsx's "LOAD
+        // NUMBER" column) — not a live reading. The live VALUE belongs on
+        // the actual StationWise Info page (StationInfoPage.jsx), which
+        // reads the live tag instead.
+        loadNoTag: stationLoadNumbers[String(id)] || '',
         enabled: true,
         dataType: 'STRING',
         tagName: '',
         address: '',
       }))
-  ), [tankTags, loadNumberValues]);
+  ), [tankTags, stationLoadNumbers]);
 
   const TH = ({ children, w, align = 'center' }) => (
     <th style={{
@@ -97,13 +98,13 @@ export default function StationColumnConfigPage({ tankTags = {}, loadNumberValue
             <tr>
               <TH w={70}>STATION NO</TH>
               <TH w={180} align="left">STATION NAME</TH>
-              <TH w={90}>LOAD NO</TH>
+              <TH w={110}>LOAD NO TAG</TH>
             </tr>
           </thead>
           <tbody>
             {rows.map((row, i) => {
               const base = i % 2 === 0 ? T.cardBg : T.panelBg;
-              const hasLoadNo = row.loadNo !== undefined;
+              const hasTag = !!row.loadNoTag;
               return (
                 <tr key={row.id} style={{ background: base }}>
                   <td style={{ ...TD, padding: '6px 10px', fontSize: 12, color: T.textLt, textAlign: 'center', fontWeight: 700 }}>
@@ -113,10 +114,10 @@ export default function StationColumnConfigPage({ tankTags = {}, loadNumberValue
                     {row.label}
                   </td>
                   <td style={{
-                    ...TD, padding: '6px 10px', fontSize: 12, textAlign: 'center',
-                    color: hasLoadNo ? T.textWh : T.textDim, fontWeight: hasLoadNo ? 700 : 400,
+                    ...TD, padding: '6px 10px', fontSize: 12, textAlign: 'center', fontFamily: 'monospace',
+                    color: hasTag ? T.textWh : T.textDim, fontWeight: hasTag ? 700 : 400,
                   }}>
-                    {hasLoadNo ? row.loadNo : '—'}
+                    {hasTag ? row.loadNoTag : 'Not configured'}
                   </td>
                 </tr>
               );

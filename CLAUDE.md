@@ -224,14 +224,18 @@ bug, or a wrong port — not a wrong protocol.
   serial number) plus the STATION NAME column, rows built directly from
   `tankTags` (one row per configured tank, in tank-id order, label =
   `tankTags[id].label` — the same common/canonical source `StationNamesConfigPage.
-  jsx` uses), plus a third **LOAD NO** column showing the live PLC value of
-  that station's Load Number tag (`STATION_<id>_LOADNUM`, via a new
-  `loadNumberValues` map built in `WagonScada3D.jsx` from `grpcTags` — the
-  same live-tag WebSocket stream everything else uses — passed down as a
-  prop; shows "—" until a PLC is connected or no address is configured). The
-  tag's *address* is still configured on `StationNamesConfigPage.jsx`'s "LOAD
-  NUMBER" column — this page only displays the resulting live value, it does
-  not configure anything. `DEFAULT_STATION_COLS` is now
+  jsx` uses), plus a third **LOAD NO TAG** column. This page is itself a
+  *configuration* page, so — on correction, after an earlier version showed
+  the live value here and was confusingly always empty in dev with no PLC
+  connected — it shows the **configured PLC address/tag** itself
+  (`stationLoadNumbers[id]`, the same address set on
+  `StationNamesConfigPage.jsx`'s "LOAD NUMBER" column; "Not configured" when
+  blank), not a live reading. The live *value* of that tag belongs on the
+  "actual" page — `StationInfoPage.jsx` — which reads it from
+  `loadNumberValues` (built in `WagonScada3D.jsx` from `grpcTags`, the live
+  tag WebSocket) instead. Keep this split: config pages show what's
+  configured, `StationInfoPage.jsx` shows what's live. `DEFAULT_STATION_COLS`
+  is now
   just `[]` (originally seeded Wagon/Operation/Station No/Station Name/Load No/
   Duration/Client Name/Part Name/Temp PV/Temp SV/Current PV/Current SV/pH PV — all
   removed over several requests). There is **no add, delete, reorder,

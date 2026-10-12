@@ -22,24 +22,6 @@ const INFO_COLS = [
   { id: 'pH',     label: 'pH PV' },
 ];
 
-// Stations that have current monitoring (electrolytic)
-const CURR_STATIONS = new Set([16, 22, 28, 34, 37, 46, 54, 61]);
-// Per-station base current (A) when active — varies by station
-const BASE_CURR = { 16: 904, 22: 902, 28: 910, 34: 896, 37: 908, 46: 903, 54: 899, 61: 915 };
-
-// Stations that have pH monitoring
-const PH_STATIONS = new Set([4, 8, 11, 13, 19, 25, 31, 46, 54, 58]);
-const PH_VALUES   = [3.67, 5.26, 2.92, 2.97, 1.13, 4.08, 6.21, 7.45, 3.15, 2.74];
-
-function fmtDur(secs) {
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = secs % 60;
-  if (h > 0) return `${h} h : ${m} m : ${s} s`;
-  if (m > 0) return `${m} m : ${s} s`;
-  return `${s} s`;
-}
-
 const T = {
   bg:      '#F0F2F6', panelBg: '#FFFFFF', headerBg: '#E8EBF4',
   tealDark:'#1565C0', teal:    '#1565C0', tealBr:   '#1565C0',
@@ -73,18 +55,12 @@ function saveTablePrefs(prefs) {
   try { localStorage.setItem(TABLE_PREFS_KEY, JSON.stringify(prefs)); } catch {}
 }
 
-const ALARMS = [
-  'W1 Lift End Not Sensed Within Alarmtime At Stn 1',
-  'W2 Transfer Timeout At Station 20',
-  'Temperature High At Electro Degreasing 1 (Stn 16)',
-  'W1 Lift Start Not Sensed Within Alarmtime At Stn 12',
-  'Communication Timeout: PLC Rack 2',
-];
-
-export default function StationInfoPage({ wagons = [], stations = [], colConfig, stationNames = [], tankTags = {}, onBack }) {
+export default function StationInfoPage({
+  wagons = [], stations = [], colConfig, stationNames = [], tankTags = {},
+  stationParamValues = {}, loadNumberValues = {}, connected = false, onBack,
+}) {
   const activeCols = INFO_COLS;
   const [page, setPage]       = useState(0);
-  const [alarmIdx, setAlarmIdx] = useState(0);
   const [tablePrefs, setTablePrefs] = useState(loadTablePrefs);
   const { paginationOn, pageSize } = tablePrefs;
 
@@ -124,38 +100,16 @@ export default function StationInfoPage({ wagons = [], stations = [], colConfig,
     }
   }
 
-  // ── Live current per electro station (updates every 500 ms) ─────────────────
-  // Keyed by 1-based station number → amps (0 when idle)
-  const [currents, setCurrents] = useState(() => {
-    const init = {};
-    CURR_STATIONS.forEach(sn => { init[sn] = 0; });
-    return init;
-  });
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setCurrents(() => {
-        const next = {};
-        stations.forEach((st, idx) => {
-          const sn = idx + 1;
-          if (!CURR_STATIONS.has(sn)) return;
-          const base = BASE_CURR[sn] ?? 900;
-          // Active station → base ± up to 18 A noise; idle → 0
-          next[sn] = st.isActive
-            ? Math.round(base + (Math.random() - 0.5) * 36)
-            : 0;
-        });
-        return next;
-      });
-    }, 500);
-    return () => clearInterval(id);
-  }, [stations]);
-
-  // Alarm ticker
-  useEffect(() => {
-    const id = setInterval(() => setAlarmIdx(i => (i + 1) % ALARMS.length), 4000);
-    return () => clearInterval(id);
-  }, []);
+  // Live param lookup — stationParamValues[stationId] is an array of
+  // {label, unit, value} built in WagonScada3D.jsx from the station's
+  // configured Actual Temperature/Current/PH tags (same live PLC source the
+  // hover tooltip uses). Returns undefined when that station has no such
+  // param configured or no live value has arrived yet — never a fabricated
+  // fallback number.
+  const findParam = (stationId, label) => {
+    const entry = (stationParamValues[String(stationId)] || []).find(p => p.label === label);
+    return entry ? entry : undefined;
+  };
 
   // Map each wagon to the nearest station index
   const wagonAtStation = {};
@@ -188,7 +142,6 @@ export default function StationInfoPage({ wagons = [], stations = [], colConfig,
     ? stations.slice(page * pageSize, (page + 1) * pageSize)
     : stations;
 
-  const alarmCount  = wagons.filter(w => w.status.startsWith('arm_')).length + 14;
   const loadCount   = stations.filter(s => s.hasLoad).length;
   const activeCount = wagons.filter(w => w.status !== 'idle').length;
 
@@ -240,28 +193,11 @@ export default function StationInfoPage({ wagons = [], stations = [], colConfig,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>{isFullscreen ? '✕' : '⛶'}</button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: T.textLt, fontWeight: 600 }}>Plant Status</span>
-          <span style={{
-            background: T.green, color: '#FFFFFF', fontWeight: 800,
-            fontSize: 11, padding: '3px 14px', borderRadius: 20,
-            boxShadow: `0 0 8px ${T.green}88`,
-          }}>Auto</span>
-        </div>
-
-        <div style={{
-          flex: 1, overflow: 'hidden', padding: '4px 10px',
-          border: `1px solid ${T.red}55`, borderRadius: 4, background: '#FFF5F5',
-          color: T.red, fontSize: 11, fontWeight: 600, fontFamily: 'monospace',
-          whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-        }}>
-          ⚠ {ALARMS[alarmIdx]}
-        </div>
+        <div style={{ flex: 1 }} />
 
         {[
-          { label: 'Alarm Count', val: alarmCount,  col: T.red   },
-          { label: 'LoadCount',   val: loadCount,   col: T.amber },
-          { label: 'Active',      val: activeCount, col: T.green },
+          { label: 'LoadCount', val: loadCount,   col: T.amber },
+          { label: 'Active',    val: activeCount, col: T.green },
         ].map(({ label, val, col }) => (
           <div key={label} style={{ flexShrink: 0, textAlign: 'center' }}>
             <div style={{ fontSize: 8.5, color: T.textDim, letterSpacing: 1.5 }}>{label}</div>
@@ -269,11 +205,15 @@ export default function StationInfoPage({ wagons = [], stations = [], colConfig,
           </div>
         ))}
 
+        {/* CommStatus reflects the real live-tag WebSocket connection
+            (useTagSocket's `connected`, threaded down from WagonScada3D.jsx)
+            — not a hardcoded always-on indicator. */}
         <div style={{ flexShrink: 0, textAlign: 'center' }}>
           <div style={{ fontSize: 8.5, color: T.textDim, letterSpacing: 1 }}>CommStatus</div>
           <div style={{
-            width: 18, height: 18, background: T.green, borderRadius: 3,
-            margin: '2px auto 0', boxShadow: `0 0 8px ${T.green}`,
+            width: 18, height: 18, background: connected ? T.green : T.textDim,
+            borderRadius: 3, margin: '2px auto 0',
+            boxShadow: connected ? `0 0 8px ${T.green}` : 'none',
           }} />
         </div>
       </div>
@@ -324,20 +264,22 @@ export default function StationInfoPage({ wagons = [], stations = [], colConfig,
               const stNo    = colConfig?.[absIdx]?.stationNo ?? sn;
               const stName  = colConfig?.[absIdx]?.label
                 || tankTags[String(sn)]?.label || stationNames[absIdx] || `Station ${sn}`;
-              const loadNo  = st.hasLoad ? 50 + ((absIdx * 17) % 30) : 0;
-              const durSecs = isActive ? 120 + ((absIdx * 37) % 7200) : (absIdx * 11) % 90;
-              const client  = isActive ? 'Test' : 'NA';
-              const part    = isActive ? `Part-${sn}` : 'NA';
 
-              const tempPV    = st.temperature;
-              const tempSV    = st.baseTemp + (st.isActive ? 8 : 0);
-              const hasCurr   = CURR_STATIONS.has(sn);
-              const currPV    = hasCurr ? (currents[sn] ?? 0) : null;
-              const phIdx     = [...PH_STATIONS].indexOf(sn);
-              const phPV      = phIdx !== -1 ? PH_VALUES[phIdx % PH_VALUES.length] : null;
-              const tempAlert = tempPV > tempSV + 2;
-              const tempColor = tempAlert ? T.red : '#FF8A65';
-              const currColor = currPV > 0 ? '#80DEEA' : T.textDim;
+              // Load No reflects the live PLC tag (STATION_<id>_LOADNUM, same
+              // source as the Column Config page's own Load No column) —
+              // undefined (shown as "—") until a PLC is connected.
+              const loadNo = loadNumberValues[String(sn)];
+
+              // Temp/Current/pH come from this station's configured
+              // Actual Temperature / Actual Current / Set Current / Actual PH
+              // tags (stationParamValues — the same live source the hover
+              // tooltip uses). undefined when that station has no such
+              // param configured. There is no live "Set Temperature" concept
+              // in this app, so Temp SV has no data source at all.
+              const tempPV = findParam(sn, 'Actual Temperature');
+              const currPV = findParam(sn, 'Actual Current');
+              const currSV = findParam(sn, 'Set Current');
+              const phPV   = findParam(sn, 'Actual PH');
 
               // Cell renderer keyed by column id
               const cell = id => {
@@ -378,50 +320,44 @@ export default function StationInfoPage({ wagons = [], stations = [], colConfig,
                     );
                   case 'loadNo':
                     return (
-                      <td key={id} style={tdBase({ color: loadNo > 0 ? T.amber : T.textDim })}>
-                        {loadNo > 0 ? loadNo : 0}
+                      <td key={id} style={tdBase({ color: loadNo != null ? T.amber : T.textDim })}>
+                        {loadNo != null ? loadNo : '—'}
                       </td>
                     );
+                  // Duration / Client Name / Part Name have no PLC tag or
+                  // any other real data source anywhere in this app — shown
+                  // as a plain placeholder rather than a fabricated value.
                   case 'dur':
-                    return (
-                      <td key={id} style={tdBase({ color: isActive ? T.tealBr : T.textDim })}>
-                        {fmtDur(durSecs)}
-                      </td>
-                    );
                   case 'client':
-                    return (
-                      <td key={id} style={tdBase({ color: isActive ? T.textWh : T.textDim })}>{client}</td>
-                    );
                   case 'part':
                     return (
-                      <td key={id} style={tdBase({ color: isActive ? T.textWh : T.textDim })}>{part}</td>
+                      <td key={id} style={tdBase({ color: T.textDim })}>—</td>
                     );
                   case 'tempPV':
                     return (
-                      <td key={id} style={tdBase({ color:tempColor, fontWeight: tempAlert ? 700 : 400 })}>
-                        {tempPV.toFixed(1)} °C{tempAlert && <span style={{ marginLeft:4, fontSize:9 }}>▲</span>}
+                      <td key={id} style={tdBase({ color: tempPV ? '#FF8A65' : T.textDim })}>
+                        {tempPV ? `${tempPV.value} ${tempPV.unit}`.trim() : '—'}
                       </td>
                     );
                   case 'tempSV':
-                    return (
-                      <td key={id} style={tdBase({ color:'#FFAB40' })}>{tempSV.toFixed(0)} °C</td>
-                    );
+                    // No "Set Temperature" param kind exists in this app.
+                    return <td key={id} style={tdBase({ color: T.textDim })}>—</td>;
                   case 'currPV':
                     return (
-                      <td key={id} style={tdBase({ color:currColor, fontWeight: currPV > 0 ? 700 : 400 })}>
-                        {hasCurr ? `${currPV} A` : ''}
+                      <td key={id} style={tdBase({ color: currPV ? '#80DEEA' : T.textDim, fontWeight: currPV ? 700 : 400 })}>
+                        {currPV ? `${currPV.value} ${currPV.unit}`.trim() : '—'}
                       </td>
                     );
                   case 'currSV':
                     return (
-                      <td key={id} style={tdBase({ color: hasCurr ? '#B2EBF2' : T.textDim })}>
-                        {hasCurr ? '0 V' : ''}
+                      <td key={id} style={tdBase({ color: currSV ? '#B2EBF2' : T.textDim })}>
+                        {currSV ? `${currSV.value} ${currSV.unit}`.trim() : '—'}
                       </td>
                     );
                   case 'pH':
                     return (
-                      <td key={id} style={tdBase({ color: phPV != null ? '#CE93D8' : T.textDim })}>
-                        {phPV != null ? `${phPV.toFixed(2)} pl` : ''}
+                      <td key={id} style={tdBase({ color: phPV ? '#CE93D8' : T.textDim })}>
+                        {phPV ? `${phPV.value} ${phPV.unit}`.trim() : '—'}
                       </td>
                     );
                   default:

@@ -250,6 +250,29 @@ bug, or a wrong port — not a wrong protocol.
   the Column Config page's saved snapshot — this is the "reflect this screen's
   data onto StationWise Info" wiring), falling back to computing them directly
   from `tankTags`/`stationNames` if `stationColCfg` hasn't been saved yet.
+  **All other mock/simulated logic was later removed from `StationInfoPage.jsx`
+  on request** ("remove complete mock logic ... no longer simulated data, only
+  columns") — the table keeps every `INFO_COLS` entry, but each cell now shows
+  either a real live value or a plain "—", never a fabricated one:
+  - **Load No**: reflects the live `STATION_<id>_LOADNUM` tag via a new
+    `loadNumberValues` prop (same value the Column Config page's own Load No
+    column shows) — "—" until a PLC is connected.
+  - **Temp PV / Current PV / Current SV / pH PV**: reflect that station's
+    configured `stationParamValues` entries (Actual Temperature / Actual
+    Current / Set Current / Actual PH — the same live tags the hover tooltip
+    already used), via a new `findParam()` helper and `stationParamValues`
+    prop — "—" when that station has no such param configured.
+  - **Temp SV, Duration, Client Name, Part Name**: always "—" — there is no
+    live tag or any other real data source for these anywhere in this app.
+    Don't reintroduce a random/hardcoded value for them; if real data becomes
+    available later (e.g. a new tag convention), wire it in properly instead.
+  - The random-noise `currents` simulation (`CURR_STATIONS`/`BASE_CURR`), the
+    hardcoded `PH_STATIONS`/`PH_VALUES`, the fake `ALARMS` ticker, the
+    always-"Auto" Plant Status badge, and the `alarmCount` stat (a real count
+    plus a fake `+14`) were all deleted outright, not replaced. **CommStatus**
+    is the one exception — it was wired to the real `connected` prop
+    (`useTagSocket`'s connection state, threaded down from `WagonScada3D.jsx`)
+    instead of being deleted, since that's genuine live information.
 
 ## Gotchas (don't repeat these)
 

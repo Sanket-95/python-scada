@@ -1,18 +1,10 @@
 import { useState } from 'react';
 
 // ── Default column definitions — no fixed/width, fully deletable ──────────────
-export const DEFAULT_STATION_COLS = [
-  { id: 'stName', label: 'Station Name',enabled: true, dataType: 'STRING', tagName: '', address: '' },
-  { id: 'loadNo', label: 'Load No',     enabled: true, dataType: 'INT',    tagName: '', address: '' },
-  { id: 'dur',    label: 'Duration',    enabled: true, dataType: 'TIME',   tagName: '', address: '' },
-  { id: 'client', label: 'Client Name', enabled: true, dataType: 'STRING', tagName: '', address: '' },
-  { id: 'part',   label: 'Part Name',   enabled: true, dataType: 'STRING', tagName: '', address: '' },
-  { id: 'tempPV', label: 'Temp PV',     enabled: true, dataType: 'REAL',   tagName: '', address: '' },
-  { id: 'tempSV', label: 'Temp SV',     enabled: true, dataType: 'REAL',   tagName: '', address: '' },
-  { id: 'currPV', label: 'Current PV',  enabled: true, dataType: 'REAL',   tagName: '', address: '' },
-  { id: 'currSV', label: 'Current SV',  enabled: true, dataType: 'REAL',   tagName: '', address: '' },
-  { id: 'pH',     label: 'pH PV',       enabled: true, dataType: 'REAL',   tagName: '', address: '' },
-];
+// Emptied on request (was: Station Name, Load No, Duration, Client Name, Part
+// Name, Temp PV, Temp SV, Current PV, Current SV, pH PV) — page now starts
+// blank; rows are added via "+ Add" only.
+export const DEFAULT_STATION_COLS = [];
 
 const T = {
   pageBg:   '#F0F2F6', panelBg:  '#FFFFFF', cardBg:   '#F4F5FA',

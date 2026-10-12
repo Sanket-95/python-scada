@@ -235,6 +235,11 @@ bug, or a wrong port — not a wrong protocol.
   still read by `StationInfoPage.jsx`'s rendering switch — only this page's editing
   UI for those fields is gone, so a row can no longer be deleted, reordered, or
   hidden/shown from here (only "↺ Reset Defaults" resets the whole list).
+  `DEFAULT_STATION_COLS` was later emptied to `[]` on request (it used to seed
+  Station Name/Load No/Duration/Client Name/Part Name/Temp PV/Temp SV/Current
+  PV/Current SV/pH PV) — the page and a fresh/reset config now start with zero
+  rows; rows exist only once added via "+ Add" or already present in a saved
+  `stationColCfg`.
 
 ## Gotchas (don't repeat these)
 

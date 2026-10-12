@@ -1,25 +1,17 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 
-// This page's own fixed report-column list — no longer driven by
-// StationColumnConfigPage.jsx's colConfig, since that page now holds a
-// per-station Station No/Name snapshot (one row per tank), not a column
-// schema. colConfig is still used below, but only to feed this page's
-// Station No / Station Name cell VALUES (see stNo/stName), matching it by
-// row position against the Column Config page's saved list.
+// This page shows exactly the columns configured on the Column Config page
+// (StationColumnConfigPage.jsx, "Sourced from Mimic Page Config") — its
+// fixed Station No / Station Name / Load No Tag columns, below shown with
+// their live value instead of the configured address, plus whatever custom
+// columns were added there with "+ Add Column" (see activeCols below). No
+// other columns exist on this page — Wagon/Operation/Duration/Client Name/
+// Part Name/Temp/Current/pH were all removed since none of them are part of
+// the Column Config page's column set.
 const INFO_COLS = [
-  { id: 'wagon',  label: 'Wagon' },
-  { id: 'op',     label: 'Operation' },
   { id: 'stNo',   label: 'Station No' },
   { id: 'stName', label: 'Station Name' },
   { id: 'loadNo', label: 'Load No' },
-  { id: 'dur',    label: 'Duration' },
-  { id: 'client', label: 'Client Name' },
-  { id: 'part',   label: 'Part Name' },
-  { id: 'tempPV', label: 'Temp PV' },
-  { id: 'tempSV', label: 'Temp SV' },
-  { id: 'currPV', label: 'Current PV' },
-  { id: 'currSV', label: 'Current SV' },
-  { id: 'pH',     label: 'pH PV' },
 ];
 
 const T = {
@@ -57,7 +49,7 @@ function saveTablePrefs(prefs) {
 
 export default function StationInfoPage({
   wagons = [], stations = [], colConfig, stationNames = [], tankTags = {},
-  stationParamValues = {}, loadNumberValues = {}, extraCols = [], extraLiveValues = {},
+  loadNumberValues = {}, extraCols = [], extraLiveValues = {},
   connected = false, onBack,
 }) {
   // Fixed columns plus whatever custom columns were added on the Column
@@ -108,18 +100,9 @@ export default function StationInfoPage({
     }
   }
 
-  // Live param lookup — stationParamValues[stationId] is an array of
-  // {label, unit, value} built in WagonScada3D.jsx from the station's
-  // configured Actual Temperature/Current/PH tags (same live PLC source the
-  // hover tooltip uses). Returns undefined when that station has no such
-  // param configured or no live value has arrived yet — never a fabricated
-  // fallback number.
-  const findParam = (stationId, label) => {
-    const entry = (stationParamValues[String(stationId)] || []).find(p => p.label === label);
-    return entry ? entry : undefined;
-  };
-
-  // Map each wagon to the nearest station index
+  // Map each wagon to the nearest station index — used only to highlight
+  // that row (isActive below), not shown as its own column anymore (Wagon/
+  // Operation aren't part of the Column Config page's column set).
   const wagonAtStation = {};
   wagons.forEach(w => {
     if (!stations.length) return;
@@ -129,20 +112,6 @@ export default function StationInfoPage({
       if (d < bestDist) { bestDist = d; best = i; }
     });
     if (bestDist < 18) wagonAtStation[best] = w;
-  });
-
-  // Wagon operation label
-  const wagonOps = {};
-  wagons.forEach(w => {
-    const entry = Object.entries(wagonAtStation).find(([, ww]) => ww.id === w.id);
-    if (!entry) return;
-    const st = stations[Number(entry[0])];
-    if (!st) return;
-    if (w.status === 'arm_extending_load'   || w.status === 'moving_to_source') wagonOps[w.id] = `Get Stn:${st.id}`;
-    else if (w.status === 'arm_extending_unload' || w.status === 'moving_to_dest') wagonOps[w.id] = `Put Stn:${st.id}`;
-    else if (w.status === 'arm_retracting_loaded') wagonOps[w.id] = `Loaded`;
-    else if (w.status === 'arm_retracting_empty')  wagonOps[w.id] = `Empty`;
-    else wagonOps[w.id] = `At Stn:${st.id}`;
   });
 
   const totalPages  = Math.max(1, Math.ceil(stations.length / pageSize));
@@ -278,43 +247,9 @@ export default function StationInfoPage({
               // undefined (shown as "—") until a PLC is connected.
               const loadNo = loadNumberValues[String(sn)];
 
-              // Temp/Current/pH come from this station's configured
-              // Actual Temperature / Actual Current / Set Current / Actual PH
-              // tags (stationParamValues — the same live source the hover
-              // tooltip uses). undefined when that station has no such
-              // param configured. There is no live "Set Temperature" concept
-              // in this app, so Temp SV has no data source at all.
-              const tempPV = findParam(sn, 'Actual Temperature');
-              const currPV = findParam(sn, 'Actual Current');
-              const currSV = findParam(sn, 'Set Current');
-              const phPV   = findParam(sn, 'Actual PH');
-
               // Cell renderer keyed by column id
               const cell = id => {
                 switch (id) {
-                  case 'wagon':
-                    return (
-                      <td key={id} style={tdBase()}>
-                        {wagonHere ? (
-                          <span style={{
-                            display:'inline-block', background:T.green, color:'#FFFFFF',
-                            fontWeight:800, fontSize:10.5, padding:'2px 10px', borderRadius:20,
-                            boxShadow:`0 0 8px ${T.green}99`,
-                          }}>W{wagonHere.id}</span>
-                        ) : (
-                          <span style={{
-                            display:'inline-block', width:30, height:16,
-                            border:`1.5px solid ${T.border}`, borderRadius:20, background:'#F0F2F6',
-                          }} />
-                        )}
-                      </td>
-                    );
-                  case 'op':
-                    return (
-                      <td key={id} style={tdBase({ color: wagonHere ? T.cyan : T.textDim })}>
-                        {wagonHere ? (wagonOps[wagonHere.id] ?? '—') : ''}
-                      </td>
-                    );
                   case 'stNo':
                     return (
                       <td key={id} style={tdBase({
@@ -330,42 +265,6 @@ export default function StationInfoPage({
                     return (
                       <td key={id} style={tdBase({ color: loadNo != null ? T.amber : T.textDim })}>
                         {loadNo != null ? loadNo : '—'}
-                      </td>
-                    );
-                  // Duration / Client Name / Part Name have no PLC tag or
-                  // any other real data source anywhere in this app — shown
-                  // as a plain placeholder rather than a fabricated value.
-                  case 'dur':
-                  case 'client':
-                  case 'part':
-                    return (
-                      <td key={id} style={tdBase({ color: T.textDim })}>—</td>
-                    );
-                  case 'tempPV':
-                    return (
-                      <td key={id} style={tdBase({ color: tempPV ? '#FF8A65' : T.textDim })}>
-                        {tempPV ? `${tempPV.value} ${tempPV.unit}`.trim() : '—'}
-                      </td>
-                    );
-                  case 'tempSV':
-                    // No "Set Temperature" param kind exists in this app.
-                    return <td key={id} style={tdBase({ color: T.textDim })}>—</td>;
-                  case 'currPV':
-                    return (
-                      <td key={id} style={tdBase({ color: currPV ? '#80DEEA' : T.textDim, fontWeight: currPV ? 700 : 400 })}>
-                        {currPV ? `${currPV.value} ${currPV.unit}`.trim() : '—'}
-                      </td>
-                    );
-                  case 'currSV':
-                    return (
-                      <td key={id} style={tdBase({ color: currSV ? '#B2EBF2' : T.textDim })}>
-                        {currSV ? `${currSV.value} ${currSV.unit}`.trim() : '—'}
-                      </td>
-                    );
-                  case 'pH':
-                    return (
-                      <td key={id} style={tdBase({ color: phPV ? '#CE93D8' : T.textDim })}>
-                        {phPV ? `${phPV.value} ${phPV.unit}`.trim() : '—'}
                       </td>
                     );
                   default: {

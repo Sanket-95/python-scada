@@ -264,41 +264,38 @@ bug, or a wrong port — not a wrong protocol.
   `INFO_COLS`) with their live value from `extraLiveValues`
   (`{stationId: {colId: value}}`, built in `WagonScada3D.jsx` from
   `grpcTags` — "—" until a PLC is connected and that station has an address
-  configured for that column). **`StationInfoPage.jsx` no longer uses
-  `colConfig` as a
-  column schema** (that stopped matching once `stationColCfg` became a
-  per-station list rather than a list of report columns) — it now has its own
-  fixed `INFO_COLS` list (Wagon, Operation, Station No, Station Name, Load No,
-  Duration, Client Name, Part Name, Temp PV, Temp SV, Current PV, Current SV,
-  pH PV — always all shown, not configurable). `colConfig` is still read there,
-  but only to source the **Station No / Station Name cell values**
-  (`colConfig[absIdx]?.stationNo` / `.label`, matched by row position against
-  the Column Config page's saved snapshot — this is the "reflect this screen's
-  data onto StationWise Info" wiring), falling back to computing them directly
-  from `tankTags`/`stationNames` if `stationColCfg` hasn't been saved yet.
-  **All other mock/simulated logic was later removed from `StationInfoPage.jsx`
-  on request** ("remove complete mock logic ... no longer simulated data, only
-  columns") — the table keeps every `INFO_COLS` entry, but each cell now shows
-  either a real live value or a plain "—", never a fabricated one:
-  - **Load No**: reflects the live `STATION_<id>_LOADNUM` tag via a new
-    `loadNumberValues` prop (same value the Column Config page's own Load No
-    column shows) — "—" until a PLC is connected.
-  - **Temp PV / Current PV / Current SV / pH PV**: reflect that station's
-    configured `stationParamValues` entries (Actual Temperature / Actual
-    Current / Set Current / Actual PH — the same live tags the hover tooltip
-    already used), via a new `findParam()` helper and `stationParamValues`
-    prop — "—" when that station has no such param configured.
-  - **Temp SV, Duration, Client Name, Part Name**: always "—" — there is no
-    live tag or any other real data source for these anywhere in this app.
-    Don't reintroduce a random/hardcoded value for them; if real data becomes
-    available later (e.g. a new tag convention), wire it in properly instead.
-  - The random-noise `currents` simulation (`CURR_STATIONS`/`BASE_CURR`), the
-    hardcoded `PH_STATIONS`/`PH_VALUES`, the fake `ALARMS` ticker, the
-    always-"Auto" Plant Status badge, and the `alarmCount` stat (a real count
-    plus a fake `+14`) were all deleted outright, not replaced. **CommStatus**
-    is the one exception — it was wired to the real `connected` prop
-    (`useTagSocket`'s connection state, threaded down from `WagonScada3D.jsx`)
-    instead of being deleted, since that's genuine live information.
+  configured for that column). **`StationInfoPage.jsx`'s column set is now
+  exactly the Column Config page's column set, nothing more** — on explicit
+  request ("only shows column data whose configured in [Column Config]"),
+  its `INFO_COLS` was cut down from an earlier fixed 13-column list (Wagon,
+  Operation, Station No, Station Name, Load No, Duration, Client Name, Part
+  Name, Temp PV, Temp SV, Current PV, Current SV, pH PV) to just **Station
+  No, Station Name, Load No** — the three the Column Config page always
+  shows — plus any custom columns from `extraCols`. Wagon/Operation (which
+  wagon is at a station, its current operation) and the Temp/Current/pH
+  `stationParamValues`-driven columns were deleted outright, not hidden —
+  none of them are part of the Column Config page's column set, so per that
+  instruction they don't belong here; `stationParamValues` is no longer a
+  prop of this page at all (still used elsewhere, e.g. the hover tooltip —
+  see `WagonScada3D.jsx`). **If a future request wants per-station
+  operational/parameter data back on this page, the right fix is to make it
+  configurable on the Column Config page first** (e.g. another custom
+  column, or a new fixed one there), not to re-add it directly to
+  `StationInfoPage.jsx` — that would reopen the exact mismatch this request
+  closed. `colConfig` is still read here, but only to source the **Station
+  No / Station Name cell values** (`colConfig[absIdx]?.stationNo` / `.label`,
+  matched by row position against the Column Config page's saved snapshot —
+  the "reflect this screen's data onto StationWise Info" wiring), falling
+  back to computing them directly from `tankTags`/`stationNames` if
+  `stationColCfg` hasn't been saved yet. **Load No** reflects the live
+  `STATION_<id>_LOADNUM` tag via `loadNumberValues` (same value the Column
+  Config page's own Load No Tag column's live reading would be) — "—" until
+  a PLC is connected. All earlier mock/simulated logic (random-noise
+  `currents`, hardcoded PH values, a fake `ALARMS` ticker, an always-"Auto"
+  Plant Status badge, a fake `+14` on the alarm count) stays deleted, not
+  replaced. **CommStatus** is still wired to the real `connected` prop
+  (`useTagSocket`'s connection state, threaded down from `WagonScada3D.jsx`)
+  — genuine live information, kept.
 
 ## Gotchas (don't repeat these)
 

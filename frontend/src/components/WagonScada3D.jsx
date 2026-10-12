@@ -2174,7 +2174,6 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               colConfig={stationColCfg}
               stationNames={buildNamesArray(stationNames, stations.length)}
               tankTags={tankTags}
-              stationParamValues={stationParamValues}
               loadNumberValues={loadNumberValues}
               extraCols={stationExtraCols}
               extraLiveValues={stationExtraLiveValues}

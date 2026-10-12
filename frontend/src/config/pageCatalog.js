@@ -23,7 +23,7 @@ export const PAGE_CATALOG = [
   {
     group: 'MONITOR',
     pages: [
-      { id: 'nav:station-info', label: 'Stations' },
+      { id: 'nav:station-info', label: 'StationWise Info' },
       { id: 'nav:tags', label: 'Tag Monitor' },
     ],
   },

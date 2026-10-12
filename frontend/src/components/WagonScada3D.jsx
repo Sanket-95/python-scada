@@ -1382,9 +1382,9 @@ const NAV = [
   // "settings feel scattered". Col. Config / General Config aren't part of
   // that requested set — kept, just appended after it.
   { type: 'sep', label: 'MIMIC SCREEN CONFIGURATION' },
-  { id: 'general-config', icon: '⚑', label: 'General Config',      sub: true },
-  { id: 'tags-config',    icon: '⊞', label: 'Mimic Page Config',    sub: true },
-  { id: 'config',         icon: '⚙', label: 'System Config',        sub: true },
+  { id: 'general-config', icon: '⚑', label: 'General Config',           sub: true },
+  { id: 'config',         icon: '⚙', label: 'Mimic Config',              sub: true },
+  { id: 'tags-config',    icon: '⊞', label: 'Mimic Station Configuration', sub: true },
   { id: 'tank-partitions',icon: '▥', label: 'Tank Partitions',      sub: true },
   { id: 'cross-trolley',  icon: '⇄', label: 'Cross Trolley',        sub: true },
   { id: 'wagon-tags',     icon: '⊟', label: 'Wagon Location Tags',  sub: true },

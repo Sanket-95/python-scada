@@ -202,10 +202,16 @@ bug, or a wrong port — not a wrong protocol.
   and given a continuous slow Y-axis rotation (`RotatingGroup`, ~0.8 rad/s) so a
   load reads clearly from a distance.
 - **Sidebar nav**: grouped under "MIMIC SCREEN CONFIGURATION" in a fixed order
-  (General Config, Mimic Page Config, System Config, Tank Partitions, Cross
-  Trolley, Wagon Location Tags, Station Info, Col. Config), with items genuinely
-  indented (the old `sub: true` flag on nav items was dead code — didn't render any
-  differently — now it actually indents).
+  (General Config, Mimic Config [nav id `config`, the old "System Config"/
+  "Configuration" — `ConfigPanel.jsx`, "PROTOVEC SCADA — SYSTEM CONFIGURATION"],
+  Mimic Station Configuration [nav id `tags-config`, the old "Mimic Page Config" —
+  `TankTagsPage.jsx`, "MIMIC PAGE CONFIGURATION"], Tank Partitions, Cross Trolley,
+  Wagon Location Tags, Station Info, Col. Config), with items genuinely indented
+  (the old `sub: true` flag on nav items was dead code — didn't render any
+  differently — now it actually indents). Sidebar *labels* have been renamed
+  multiple times on request; the nav `id`s and the page titles/headers shown once
+  opened have not changed — use the `id` or the page's own on-screen title to
+  identify a page in code, not the current sidebar label text.
 
 ## Gotchas (don't repeat these)
 

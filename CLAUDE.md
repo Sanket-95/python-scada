@@ -218,30 +218,21 @@ bug, or a wrong port — not a wrong protocol.
   on-screen title have not changed — use the `id` or the page's own title to
   identify a page in code, never the current sidebar label text.
 - **Column Config page** (`StationColumnConfigPage.jsx`, `StationInfoPage.jsx`):
-  the list of rows is a *report column* schema (Wagon/Operation/Station No were
-  removed from `DEFAULT_STATION_COLS` on request — Station Name is now the first
-  entry), used to build a demo/mock report table in `StationInfoPage.jsx` (most of
-  that page — current, pH, alarms — is still hardcoded demo data, not live). The
-  table header for each row's own name field was renamed from "COLUMN NAME" to
-  "STATION NAME" (cosmetic only, same `label` field). The rendered **Station Name**
-  *column value* in that report now sources from Mimic Page Config's label first
-  (`tankTags[id]?.label` — the same common/canonical source
-  `StationNamesConfigPage.jsx` uses), falling back to the older separate
-  `stationNames` array, then a plain `Station N` default. The page's own table was
-  later stripped down to a single editable column (just the row's name/label) on
-  request — the drag handle, Show toggle, Move arrows, Data Type, Tag Name, PLC
-  Address, Status, and Del columns were all removed from the UI. The underlying
-  per-row data shape (`enabled`/`dataType`/`tagName`/`address`) is unchanged and
-  still read by `StationInfoPage.jsx`'s rendering switch — only this page's editing
-  UI for those fields is gone. `DEFAULT_STATION_COLS` was emptied to `[]` on
-  request (it used to seed Station Name/Load No/Duration/Client Name/Part
-  Name/Temp PV/Temp SV/Current PV/Current SV/pH PV). The toolbar's "+ Add"
-  (name input + button) and "↺ Reset Defaults" were also removed on request —
-  this page is now just Back/Save and whatever rows are already in a saved
-  `stationColCfg`'s label column; it can no longer add, delete, reorder,
-  hide/show, or reset any row from this screen. If a way to populate/clear this
-  list is needed again, it'll have to be re-added deliberately — don't assume
-  it still exists.
+  went through many rounds of simplification on request and is now a **read-only
+  mirror of Mimic Page Config**: its one "STATION NAME" column's rows are built
+  directly from `tankTags` (one row per configured tank, in tank-id order, label =
+  `tankTags[id].label` — the same common/canonical source `StationNamesConfigPage.
+  jsx` uses), not from any independently-stored list. `DEFAULT_STATION_COLS` is now
+  just `[]` (originally seeded Wagon/Operation/Station No/Station Name/Load No/
+  Duration/Client Name/Part Name/Temp PV/Temp SV/Current PV/Current SV/pH PV — all
+  removed over several requests) — it only matters as `StationInfoPage.jsx`'s
+  fallback before `stationColCfg` has ever been saved. There is **no add, delete,
+  reorder, hide/show, reset, or edit** on this page anymore (all removed on
+  request, including one round that was reverted — see git history on
+  `StationColumnConfigPage.jsx` before re-adding any of them) — "✔ Save Column
+  Config" just persists the current tankTags-derived snapshot into
+  `stationColCfg`, which `StationInfoPage.jsx` still reads via `colConfig` and
+  filters by `enabled` for its (mostly still mock/demo) report table.
 
 ## Gotchas (don't repeat these)
 

@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 
 // ── Default column definitions ─────────────────────────────────────────────
-// Emptied on request (was: Station Name, Load No, Duration, Client Name, Part
-// Name, Temp PV, Temp SV, Current PV, Current SV, pH PV). The Add/Reset
-// controls were removed too, so this page now only edits whatever rows are
-// already in a saved `stationColCfg` — it can no longer create or reset any.
+// Empty — StationInfoPage.jsx falls back to this only when stationColCfg has
+// never been saved. Real rows now come from Mimic Page Config (see below),
+// not from a fixed default list.
 export const DEFAULT_STATION_COLS = [];
 
 const T = {
@@ -16,22 +15,26 @@ const T = {
   textDim:  '#8090A8', yellow:   '#1565C0',
 };
 
-const inp = (extra = {}) => ({
-  boxSizing: 'border-box', background: T.inputBg, color: T.inputText,
-  border: `1.5px solid ${T.border}`, borderRadius: 4,
-  padding: '5px 8px', fontSize: 12, fontFamily: 'monospace', outline: 'none',
-  ...extra,
-});
-
-// Rows keep their dataType/tagName/address/enabled fields (other code —
-// StationInfoPage.jsx's column rendering — still reads them), this page just
-// no longer exposes #, Show, Move, Data Type, Tag Name, PLC Address, Status,
-// or Del as editable UI — only the Station Name label, per request.
-export default function StationColumnConfigPage({ colConfig, onSave, onBack }) {
-  const [draft, setDraft] = useState(() => JSON.parse(JSON.stringify(colConfig)));
-
-  const update = (id, field, val) =>
-    setDraft(d => d.map(c => c.id === id ? { ...c, [field]: val } : c));
+// Rows are a read-only mirror of Mimic Page Config's Label column
+// (tankTags[id].label — the common/canonical Station Name source, same as
+// StationNamesConfigPage.jsx), one row per configured tank/station. Nothing
+// here is independently editable; Save just persists this list (with the
+// enabled/dataType/tagName/address fields StationInfoPage.jsx's rendering
+// switch still reads) into stationColCfg.
+export default function StationColumnConfigPage({ tankTags = {}, onSave, onBack }) {
+  const rows = useMemo(() => (
+    Object.keys(tankTags)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .map(id => ({
+        id: `stn_${id}`,
+        label: tankTags[String(id)]?.label || `Tank ${id}`,
+        enabled: true,
+        dataType: 'STRING',
+        tagName: '',
+        address: '',
+      }))
+  ), [tankTags]);
 
   const TH = ({ children, w, align = 'center' }) => (
     <th style={{
@@ -68,7 +71,7 @@ export default function StationColumnConfigPage({ colConfig, onSave, onBack }) {
               STATION INFO — COLUMN CONFIGURATION
             </div>
             <div style={{ fontSize: 18, fontWeight: 700, color: T.textWh, marginTop: 2 }}>
-              Add · Remove · Reorder · Bind PLC tags
+              Sourced from Mimic Page Config
             </div>
           </div>
         </div>
@@ -77,7 +80,7 @@ export default function StationColumnConfigPage({ colConfig, onSave, onBack }) {
           borderRadius: 8, padding: '6px 14px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 9, color: T.accent, fontWeight: 700, letterSpacing: 2 }}>TOTAL</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: T.accent }}>{draft.length}</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: T.accent }}>{rows.length}</div>
         </div>
       </div>
 
@@ -90,31 +93,25 @@ export default function StationColumnConfigPage({ colConfig, onSave, onBack }) {
             </tr>
           </thead>
           <tbody>
-            {draft.map((col, i) => {
-              const base  = i % 2 === 0 ? T.cardBg : T.panelBg;
+            {rows.map((row, i) => {
+              const base = i % 2 === 0 ? T.cardBg : T.panelBg;
               return (
-                <tr key={col.id} style={{ background: base }}>
-                  <td style={{ ...TD, padding: '6px 10px' }}>
-                    <input
-                      value={col.label}
-                      onChange={e => update(col.id, 'label', e.target.value)}
-                      style={{ ...inp(), width: '100%' }}
-                      onFocus={e => e.target.style.borderColor = T.teal}
-                      onBlur={e  => e.target.style.borderColor = T.border}
-                    />
+                <tr key={row.id} style={{ background: base }}>
+                  <td style={{ ...TD, padding: '6px 10px', fontSize: 12, color: T.textLt }}>
+                    {row.label}
                   </td>
                 </tr>
               );
             })}
 
             {/* Empty state */}
-            {draft.length === 0 && (
+            {rows.length === 0 && (
               <tr>
                 <td style={{
                   padding: '40px', textAlign: 'center',
                   color: T.textDim, fontSize: 13, fontStyle: 'italic',
                 }}>
-                  No entries configured
+                  No stations configured
                 </td>
               </tr>
             )}
@@ -135,7 +132,7 @@ export default function StationColumnConfigPage({ colConfig, onSave, onBack }) {
           color: T.textLt, cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',
         }}>← Back to Config</button>
 
-        <button onClick={() => onSave(draft)} style={{
+        <button onClick={() => onSave(rows)} style={{
           padding: '10px 32px', fontSize: 13, fontWeight: 700,
           background: T.teal, border: 'none', color: '#FFFFFF',
           cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',

@@ -1381,15 +1381,18 @@ const NAV = [
   // mismatch between sidebar label and page title was the main source of
   // "settings feel scattered". Col. Config / General Config aren't part of
   // that requested set — kept, just appended after it.
+  // depth: 1 = child of the group heading above; depth: 2 = child of Mimic
+  // Config specifically (the nearest depth-1 item above it).
   { type: 'sep', label: 'MIMIC SCREEN CONFIGURATION' },
-  { id: 'general-config', icon: '⚑', label: 'General Config',           sub: true },
-  { id: 'config',         icon: '⚙', label: 'Mimic Config',              sub: true },
-  { id: 'tags-config',    icon: '⊞', label: 'Mimic Station Configuration', sub: true },
-  { id: 'tank-partitions',icon: '▥', label: 'Tank Partitions',      sub: true },
-  { id: 'cross-trolley',  icon: '⇄', label: 'Cross Trolley',        sub: true },
-  { id: 'wagon-tags',     icon: '⊟', label: 'Wagon Location Tags',  sub: true },
-  { id: 'station-names',  icon: '✎', label: 'Station Info',        sub: true },
-  { id: 'station-cols',   icon: '≡', label: 'Col. Config',         sub: true },
+  { id: 'general-config', icon: '⚑', label: 'General Config',             depth: 1 },
+  { id: 'config',         icon: '⚙', label: 'Mimic Config',                depth: 1 },
+  { id: 'tags-config',    icon: '⊞', label: 'Mimic Station Configuration', depth: 2 },
+  { id: 'tank-partitions',icon: '▥', label: 'Tank Partitions',             depth: 2 },
+  { id: 'cross-trolley',  icon: '⇄', label: 'Cross Trolley',               depth: 2 },
+  { id: 'wagon-tags',     icon: '⊟', label: 'Wagon Location Tags',         depth: 2 },
+  { id: 'station-names',  icon: '✎', label: 'Station Info',               depth: 2 },
+  { type: 'sep', label: 'STATION COLUMNS' },
+  { id: 'station-cols',   icon: '≡', label: 'Col. Config' },
   { type: 'sep', label: 'DIAGNOSTICS' },
   { id: 'plc-test',      icon: '⚡', label: 'PLC Connection Test' },
   { type: 'sep', label: 'DEPLOY' },
@@ -1506,6 +1509,11 @@ const Sidebar = memo(function Sidebar({ view, navigate, expanded, onToggle, nav 
               }}>{item.label}</div>
             );
             const isActive = view === item.id;
+            const depth = item.depth || 0; // 0 = top-level, 1 = group child, 2 = child of a depth-1 parent
+            const leftPad = depth === 0 ? 10 : depth === 1 ? 22 : 34;
+            const iconSize = depth === 0 ? 20 : depth === 1 ? 15 : 13;
+            const iconWidth = depth === 0 ? 22 : depth === 1 ? 17 : 15;
+            const textSize = depth === 0 ? 12 : depth === 1 ? 11.5 : 11;
             return (
               <button
                 key={item.id}
@@ -1513,7 +1521,7 @@ const Sidebar = memo(function Sidebar({ view, navigate, expanded, onToggle, nav 
                 title={item.label}
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                  padding: item.sub ? '7px 10px 7px 22px' : '8px 10px',
+                  padding: `${depth === 0 ? 8 : 7}px 10px 7px ${leftPad}px`,
                   background: isActive ? '#EEF4FF' : 'transparent',
                   border: 'none', borderLeft: isActive ? '3px solid #1565C0' : '3px solid transparent',
                   cursor: 'pointer', fontFamily: "'Segoe UI', system-ui, monospace",
@@ -1522,9 +1530,9 @@ const Sidebar = memo(function Sidebar({ view, navigate, expanded, onToggle, nav 
                 onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#F4F5FA'; }}
                 onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
               >
-                <span style={{ fontSize: item.sub ? 15 : 20, fontWeight: 700, width: item.sub ? 17 : 22, textAlign: 'center', color: isActive ? '#1565C0' : '#3A4652', flexShrink: 0, lineHeight: 1 }}>{item.icon}</span>
+                <span style={{ fontSize: iconSize, fontWeight: 700, width: iconWidth, textAlign: 'center', color: isActive ? '#1565C0' : '#3A4652', flexShrink: 0, lineHeight: 1 }}>{item.icon}</span>
                 <span style={{
-                  fontSize: item.sub ? 11.5 : 12, fontWeight: isActive ? 700 : 500,
+                  fontSize: textSize, fontWeight: isActive ? 700 : 500,
                   color: isActive ? '#1565C0' : '#2A3A4A',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   opacity: expanded ? 1 : 0, transition: 'opacity 0.15s',

@@ -201,17 +201,22 @@ bug, or a wrong port — not a wrong protocol.
   (opacity 0.32 → 0.18) and the in-tank/carried load items scaled up (1.4×/1.5×)
   and given a continuous slow Y-axis rotation (`RotatingGroup`, ~0.8 rad/s) so a
   load reads clearly from a distance.
-- **Sidebar nav**: grouped under "MIMIC SCREEN CONFIGURATION" in a fixed order
-  (General Config, Mimic Config [nav id `config`, the old "System Config"/
-  "Configuration" — `ConfigPanel.jsx`, "PROTOVEC SCADA — SYSTEM CONFIGURATION"],
-  Mimic Station Configuration [nav id `tags-config`, the old "Mimic Page Config" —
-  `TankTagsPage.jsx`, "MIMIC PAGE CONFIGURATION"], Tank Partitions, Cross Trolley,
-  Wagon Location Tags, Station Info, Col. Config), with items genuinely indented
-  (the old `sub: true` flag on nav items was dead code — didn't render any
-  differently — now it actually indents). Sidebar *labels* have been renamed
-  multiple times on request; the nav `id`s and the page titles/headers shown once
-  opened have not changed — use the `id` or the page's own on-screen title to
-  identify a page in code, not the current sidebar label text.
+- **Sidebar nav**: two actual indent levels now (`item.depth`: 1 = child of the
+  section heading, 2 = child of the nearest depth-1 item above it — the old
+  `sub: true` boolean was dead code, replaced). Under "MIMIC SCREEN
+  CONFIGURATION": **General Config** (depth 1) and **Mimic Config** (depth 1, nav
+  id `config` — the old "System Config"/"Configuration", `ConfigPanel.jsx`,
+  "PROTOVEC SCADA — SYSTEM CONFIGURATION") are siblings; **Mimic Station
+  Configuration** (nav id `tags-config` — the old "Mimic Page Config",
+  `TankTagsPage.jsx`, "MIMIC PAGE CONFIGURATION"), Tank Partitions, Cross Trolley,
+  Wagon Location Tags, and Station Info are all depth 2, nested under Mimic
+  Config. **Col. Config** (nav id `station-cols` — `StationColumnConfigPage.jsx`,
+  "STATION INFO — COLUMN CONFIGURATION") was deliberately pulled out of that group
+  into its own separate top-level section ("STATION COLUMNS"), not nested under
+  Mimic Config — kept it a standalone route on request. Sidebar *labels* have been
+  renamed/reordered multiple times on request; the nav `id`s and each page's own
+  on-screen title have not changed — use the `id` or the page's own title to
+  identify a page in code, never the current sidebar label text.
 
 ## Gotchas (don't repeat these)
 

@@ -224,7 +224,14 @@ bug, or a wrong port — not a wrong protocol.
   serial number) plus the STATION NAME column, rows built directly from
   `tankTags` (one row per configured tank, in tank-id order, label =
   `tankTags[id].label` — the same common/canonical source `StationNamesConfigPage.
-  jsx` uses), not from any independently-stored list. `DEFAULT_STATION_COLS` is now
+  jsx` uses), plus a third **LOAD NO** column showing the live PLC value of
+  that station's Load Number tag (`STATION_<id>_LOADNUM`, via a new
+  `loadNumberValues` map built in `WagonScada3D.jsx` from `grpcTags` — the
+  same live-tag WebSocket stream everything else uses — passed down as a
+  prop; shows "—" until a PLC is connected or no address is configured). The
+  tag's *address* is still configured on `StationNamesConfigPage.jsx`'s "LOAD
+  NUMBER" column — this page only displays the resulting live value, it does
+  not configure anything. `DEFAULT_STATION_COLS` is now
   just `[]` (originally seeded Wagon/Operation/Station No/Station Name/Load No/
   Duration/Client Name/Part Name/Temp PV/Temp SV/Current PV/Current SV/pH PV — all
   removed over several requests). There is **no add, delete, reorder,

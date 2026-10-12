@@ -21,7 +21,7 @@ const T = {
 // here is independently editable; Save just persists this list (with the
 // enabled/dataType/tagName/address fields StationInfoPage.jsx's rendering
 // switch still reads) into stationColCfg.
-export default function StationColumnConfigPage({ tankTags = {}, onSave, onBack }) {
+export default function StationColumnConfigPage({ tankTags = {}, loadNumberValues = {}, onSave, onBack }) {
   const rows = useMemo(() => (
     Object.keys(tankTags)
       .map(Number)
@@ -30,12 +30,17 @@ export default function StationColumnConfigPage({ tankTags = {}, onSave, onBack 
         id: `stn_${id}`,
         stationNo: id,
         label: tankTags[String(id)]?.label || `Tank ${id}`,
+        // Live PLC value of this station's Load Number tag (the address is
+        // configured on StationNamesConfigPage.jsx's "LOAD NUMBER" column —
+        // this just reflects what's actually arriving over the live tag
+        // WebSocket in a deployed exe, undefined until a PLC is connected).
+        loadNo: loadNumberValues[String(id)],
         enabled: true,
         dataType: 'STRING',
         tagName: '',
         address: '',
       }))
-  ), [tankTags]);
+  ), [tankTags, loadNumberValues]);
 
   const TH = ({ children, w, align = 'center' }) => (
     <th style={{
@@ -92,11 +97,13 @@ export default function StationColumnConfigPage({ tankTags = {}, onSave, onBack 
             <tr>
               <TH w={70}>STATION NO</TH>
               <TH w={180} align="left">STATION NAME</TH>
+              <TH w={90}>LOAD NO</TH>
             </tr>
           </thead>
           <tbody>
             {rows.map((row, i) => {
               const base = i % 2 === 0 ? T.cardBg : T.panelBg;
+              const hasLoadNo = row.loadNo !== undefined;
               return (
                 <tr key={row.id} style={{ background: base }}>
                   <td style={{ ...TD, padding: '6px 10px', fontSize: 12, color: T.textLt, textAlign: 'center', fontWeight: 700 }}>
@@ -105,6 +112,12 @@ export default function StationColumnConfigPage({ tankTags = {}, onSave, onBack 
                   <td style={{ ...TD, padding: '6px 10px', fontSize: 12, color: T.textLt }}>
                     {row.label}
                   </td>
+                  <td style={{
+                    ...TD, padding: '6px 10px', fontSize: 12, textAlign: 'center',
+                    color: hasLoadNo ? T.textWh : T.textDim, fontWeight: hasLoadNo ? 700 : 400,
+                  }}>
+                    {hasLoadNo ? row.loadNo : '—'}
+                  </td>
                 </tr>
               );
             })}
@@ -112,7 +125,7 @@ export default function StationColumnConfigPage({ tankTags = {}, onSave, onBack 
             {/* Empty state */}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={2} style={{
+                <td colSpan={3} style={{
                   padding: '40px', textAlign: 'center',
                   color: T.textDim, fontSize: 13, fontStyle: 'italic',
                 }}>

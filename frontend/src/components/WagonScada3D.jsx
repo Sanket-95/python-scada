@@ -1863,6 +1863,21 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
     return out;
   }, [stationParams, stationLoadNumbers, grpcTags]);
 
+  // Live Load Number value per station, keyed by station id — same tag
+  // (STATION_<id>_LOADNUM) as stationParamValues above, but as a plain
+  // {stationId: value} map for StationColumnConfigPage.jsx's own Load No
+  // column (that page shows the live tag value, not the configured address —
+  // the address itself is edited on StationNamesConfigPage.jsx).
+  const loadNumberValues = useMemo(() => {
+    const out = {};
+    Object.entries(stationLoadNumbers).forEach(([stationId, address]) => {
+      if (!address) return;
+      const live = grpcTags[`STATION_${stationId}_LOADNUM`];
+      if (live) out[stationId] = live.value;
+    });
+    return out;
+  }, [stationLoadNumbers, grpcTags]);
+
   // Tank tag values mirror simulation station hasLoad — future: replaced by gRPC writes
   const tagValues = useMemo(() => {
     const v = {};
@@ -2134,6 +2149,7 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
             <StationColumnConfigPage
               colConfig={stationColCfg}
               tankTags={tankTags}
+              loadNumberValues={loadNumberValues}
               onSave={handleSaveStationCols}
               onBack={() => setView('config')}
             />

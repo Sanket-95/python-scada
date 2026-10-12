@@ -219,8 +219,10 @@ bug, or a wrong port — not a wrong protocol.
   identify a page in code, never the current sidebar label text.
 - **Column Config page** (`StationColumnConfigPage.jsx`, `StationInfoPage.jsx`):
   went through many rounds of simplification on request and is now a **read-only
-  mirror of Mimic Page Config**: its one "STATION NAME" column's rows are built
-  directly from `tankTags` (one row per configured tank, in tank-id order, label =
+  mirror of Mimic Page Config**: it shows a STATION NO column (the tank id itself
+  — ids are contiguous from 1 across all lines, so this also reads as a plain
+  serial number) plus the STATION NAME column, rows built directly from
+  `tankTags` (one row per configured tank, in tank-id order, label =
   `tankTags[id].label` — the same common/canonical source `StationNamesConfigPage.
   jsx` uses), not from any independently-stored list. `DEFAULT_STATION_COLS` is now
   just `[]` (originally seeded Wagon/Operation/Station No/Station Name/Load No/

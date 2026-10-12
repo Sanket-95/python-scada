@@ -28,6 +28,7 @@ export default function StationColumnConfigPage({ tankTags = {}, onSave, onBack 
       .sort((a, b) => a - b)
       .map(id => ({
         id: `stn_${id}`,
+        stationNo: id,
         label: tankTags[String(id)]?.label || `Tank ${id}`,
         enabled: true,
         dataType: 'STRING',
@@ -89,6 +90,7 @@ export default function StationColumnConfigPage({ tankTags = {}, onSave, onBack 
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={{ position: 'sticky', top: 0, zIndex: 5 }}>
             <tr>
+              <TH w={70}>STATION NO</TH>
               <TH w={180} align="left">STATION NAME</TH>
             </tr>
           </thead>
@@ -97,6 +99,9 @@ export default function StationColumnConfigPage({ tankTags = {}, onSave, onBack 
               const base = i % 2 === 0 ? T.cardBg : T.panelBg;
               return (
                 <tr key={row.id} style={{ background: base }}>
+                  <td style={{ ...TD, padding: '6px 10px', fontSize: 12, color: T.textLt, textAlign: 'center', fontWeight: 700 }}>
+                    {row.stationNo}
+                  </td>
                   <td style={{ ...TD, padding: '6px 10px', fontSize: 12, color: T.textLt }}>
                     {row.label}
                   </td>
@@ -107,7 +112,7 @@ export default function StationColumnConfigPage({ tankTags = {}, onSave, onBack 
             {/* Empty state */}
             {rows.length === 0 && (
               <tr>
-                <td style={{
+                <td colSpan={2} style={{
                   padding: '40px', textAlign: 'center',
                   color: T.textDim, fontSize: 13, fontStyle: 'italic',
                 }}>

@@ -227,14 +227,22 @@ bug, or a wrong port — not a wrong protocol.
   jsx` uses), not from any independently-stored list. `DEFAULT_STATION_COLS` is now
   just `[]` (originally seeded Wagon/Operation/Station No/Station Name/Load No/
   Duration/Client Name/Part Name/Temp PV/Temp SV/Current PV/Current SV/pH PV — all
-  removed over several requests) — it only matters as `StationInfoPage.jsx`'s
-  fallback before `stationColCfg` has ever been saved. There is **no add, delete,
-  reorder, hide/show, reset, or edit** on this page anymore (all removed on
-  request, including one round that was reverted — see git history on
+  removed over several requests). There is **no add, delete, reorder,
+  hide/show, reset, or edit** on this page anymore (all removed on request,
+  including one round that was reverted — see git history on
   `StationColumnConfigPage.jsx` before re-adding any of them) — "✔ Save Column
   Config" just persists the current tankTags-derived snapshot into
-  `stationColCfg`, which `StationInfoPage.jsx` still reads via `colConfig` and
-  filters by `enabled` for its (mostly still mock/demo) report table.
+  `stationColCfg`. **`StationInfoPage.jsx` no longer uses `colConfig` as a
+  column schema** (that stopped matching once `stationColCfg` became a
+  per-station list rather than a list of report columns) — it now has its own
+  fixed `INFO_COLS` list (Wagon, Operation, Station No, Station Name, Load No,
+  Duration, Client Name, Part Name, Temp PV, Temp SV, Current PV, Current SV,
+  pH PV — always all shown, not configurable). `colConfig` is still read there,
+  but only to source the **Station No / Station Name cell values**
+  (`colConfig[absIdx]?.stationNo` / `.label`, matched by row position against
+  the Column Config page's saved snapshot — this is the "reflect this screen's
+  data onto StationWise Info" wiring), falling back to computing them directly
+  from `tankTags`/`stationNames` if `stationColCfg` hasn't been saved yet.
 
 ## Gotchas (don't repeat these)
 

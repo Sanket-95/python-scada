@@ -1,5 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
-import { DEFAULT_STATION_COLS } from './StationColumnConfigPage';
+
+// This page's own fixed report-column list — no longer driven by
+// StationColumnConfigPage.jsx's colConfig, since that page now holds a
+// per-station Station No/Name snapshot (one row per tank), not a column
+// schema. colConfig is still used below, but only to feed this page's
+// Station No / Station Name cell VALUES (see stNo/stName), matching it by
+// row position against the Column Config page's saved list.
+const INFO_COLS = [
+  { id: 'wagon',  label: 'Wagon' },
+  { id: 'op',     label: 'Operation' },
+  { id: 'stNo',   label: 'Station No' },
+  { id: 'stName', label: 'Station Name' },
+  { id: 'loadNo', label: 'Load No' },
+  { id: 'dur',    label: 'Duration' },
+  { id: 'client', label: 'Client Name' },
+  { id: 'part',   label: 'Part Name' },
+  { id: 'tempPV', label: 'Temp PV' },
+  { id: 'tempSV', label: 'Temp SV' },
+  { id: 'currPV', label: 'Current PV' },
+  { id: 'currSV', label: 'Current SV' },
+  { id: 'pH',     label: 'pH PV' },
+];
 
 // Stations that have current monitoring (electrolytic)
 const CURR_STATIONS = new Set([16, 22, 28, 34, 37, 46, 54, 61]);
@@ -61,7 +82,7 @@ const ALARMS = [
 ];
 
 export default function StationInfoPage({ wagons = [], stations = [], colConfig, stationNames = [], tankTags = {}, onBack }) {
-  const activeCols = (colConfig ?? DEFAULT_STATION_COLS).filter(c => c.enabled);
+  const activeCols = INFO_COLS;
   const [page, setPage]       = useState(0);
   const [alarmIdx, setAlarmIdx] = useState(0);
   const [tablePrefs, setTablePrefs] = useState(loadTablePrefs);
@@ -293,11 +314,16 @@ export default function StationInfoPage({ wagons = [], stations = [], colConfig,
               const rowBg     = isActive ? T.active
                               : rowIdx % 2 === 0 ? T.rowEven : T.rowOdd;
 
-              // Station Name is sourced from Mimic Page Configuration's own
-              // label first (the common/canonical source — see
-              // StationNamesConfigPage.jsx), falling back to the older
-              // separate name array, then a plain default.
-              const stName  = tankTags[String(sn)]?.label || stationNames[absIdx] || `Station ${sn}`;
+              // Station No / Station Name reflect the Column Config page's
+              // saved snapshot (stationColCfg, matched by row position) when
+              // present, since that's now the common/canonical source for
+              // both (itself sourced from Mimic Page Config's label — see
+              // StationColumnConfigPage.jsx / StationNamesConfigPage.jsx).
+              // Falls back to computing them directly if that snapshot
+              // hasn't been saved yet.
+              const stNo    = colConfig?.[absIdx]?.stationNo ?? sn;
+              const stName  = colConfig?.[absIdx]?.label
+                || tankTags[String(sn)]?.label || stationNames[absIdx] || `Station ${sn}`;
               const loadNo  = st.hasLoad ? 50 + ((absIdx * 17) % 30) : 0;
               const durSecs = isActive ? 120 + ((absIdx * 37) % 7200) : (absIdx * 11) % 90;
               const client  = isActive ? 'Test' : 'NA';
@@ -344,7 +370,7 @@ export default function StationInfoPage({ wagons = [], stations = [], colConfig,
                       <td key={id} style={tdBase({
                         background:T.tealDark, color:'#FFFFFF', fontWeight:700, fontSize:15,
                         borderRight:`2px solid ${T.teal}`,
-                      })}>{sn}</td>
+                      })}>{stNo}</td>
                     );
                   case 'stName':
                     return (

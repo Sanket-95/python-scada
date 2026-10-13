@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   loadDbConfig, saveDbConfig,
   loadDbConfigFromServer, saveDbConfigToServer,
@@ -79,6 +79,7 @@ function ResultBanner({ result }) {
 export default function DbConnectionTestPage({ onBack }) {
   const [cfg, setCfg] = useState(loadDbConfig);
   const [result, setResult] = useState(null); // null | 'testing' | { ok, latencyMs } | { ok:false, error }
+  const [loadedFromServer, setLoadedFromServer] = useState(false);
 
   useEffect(() => {
     loadDbConfigFromServer().then(serverCfg => {
@@ -86,6 +87,7 @@ export default function DbConnectionTestPage({ onBack }) {
         saveDbConfig(serverCfg);
         setCfg(serverCfg);
       }
+      setLoadedFromServer(true);
     });
   }, []);
 
@@ -140,6 +142,36 @@ export default function DbConnectionTestPage({ onBack }) {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
         <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, letterSpacing: 1.5, marginBottom: 12 }}>
+              CURRENT CONFIGURATION
+            </div>
+            {!loadedFromServer ? (
+              <div style={{ fontSize: 12, color: T.textDim, fontStyle: 'italic' }}>Loading…</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 8, columnGap: 16, fontSize: 13 }}>
+                {[
+                  ['Server', cfg.server],
+                  ['Port', cfg.port || 'Auto (named instance)'],
+                  ['Database', cfg.database],
+                  ['Username', cfg.username],
+                  ['Password', cfg.password ? '•'.repeat(10) + ' (saved)' : ''],
+                ].map(([label, value]) => (
+                  <Fragment key={label}>
+                    <div style={{ color: T.textDim, fontWeight: 600 }}>{label}</div>
+                    <div style={{
+                      color: value ? T.textWh : T.textDim,
+                      fontFamily: label === 'Password' ? 'inherit' : 'monospace',
+                      fontStyle: value ? 'normal' : 'italic',
+                    }}>
+                      {value || 'Not configured'}
+                    </div>
+                  </Fragment>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div style={{ background: T.panelBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: 20 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, letterSpacing: 1.5, marginBottom: 4 }}>

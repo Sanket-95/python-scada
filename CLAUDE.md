@@ -122,7 +122,19 @@ savedUserConfig.json / savedPlcConfig.json <--- config_store.py ------+
   username/password) + live connection test, modeled directly on
   `PlcConnectionTestPage.jsx`'s layout/pattern. Sidebar nav id `db-test`, placed
   right under PLC Connection Test in the DIAGNOSTICS section. This is what the
-  Part Number column (see Feature notes) queries live against.
+  Part Number column (see Feature notes) queries live against. A read-only
+  **CURRENT CONFIGURATION** card sits above the editable form (added on request
+  — the password field being masked made it otherwise impossible to tell at a
+  glance whether one was already saved), showing what's actually loaded from
+  the server right now — Port shows "Auto (named instance)" when blank (see the
+  named-instance port note below) and Password shows "••••••••• (saved)" or
+  "Not configured", never the value itself.
+  **Port defaults to blank, not 1433** — a named instance (e.g. `.\SQLEXPRESS`,
+  the real shape of a connection this was built against) resolves its own,
+  often dynamic, port via the SQL Server Browser service when no port is
+  given; forcing 1433 by default would break that resolution. `db_client.py`'s
+  `_connect()` only passes a `port` kwarg to `pymssql.connect()` when the user
+  actually set one.
 - `components/TankTagsPage.jsx` — "MIMIC PAGE CONFIGURATION" — tag name/label/PLC
   address/type per tank, plus Excel import (`ExcelTagImportModal.jsx`).
 

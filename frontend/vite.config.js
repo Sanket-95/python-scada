@@ -7,6 +7,7 @@ const USER_CFG_PATH    = path.resolve(import.meta.dirname, 'src/config/savedUser
 const HEADER_CFG_PATH  = path.resolve(import.meta.dirname, 'src/config/savedHeaderConfig.json')
 const PAGE_SEL_CFG_PATH = path.resolve(import.meta.dirname, 'src/config/savedPageSelection.json')
 const PLC_CFG_PATH     = path.resolve(import.meta.dirname, 'src/config/savedPlcConfig.json')
+const DB_CFG_PATH      = path.resolve(import.meta.dirname, 'src/config/savedDbConfig.json')
 
 // Simple GET/POST-to-a-JSON-file API — no database, just a config file on disk.
 function jsonFileApi(name, route, filePath) {
@@ -50,17 +51,19 @@ export default defineConfig({
     jsonFileApi('header-config-api', '/api/header-config', HEADER_CFG_PATH),
     jsonFileApi('page-selection-api', '/api/page-selection', PAGE_SEL_CFG_PATH),
     jsonFileApi('plc-config-api', '/api/plc-config', PLC_CFG_PATH),
+    jsonFileApi('db-config-api', '/api/db-config', DB_CFG_PATH),
   ],
   server: {
     proxy: {
       // Everything else under /api (right now: App Builder's exe-generation
       // endpoints) needs the actual FastAPI backend — that's real Python
       // work (npm build + PyInstaller), not something to reimplement here.
-      // Only these two prefixes are proxied, not all of /api, so they never
+      // Only these prefixes are proxied, not all of /api, so they never
       // shadow the jsonFileApi routes above.
       '/api/generate-app-exe': 'http://127.0.0.1:50054',
       '/api/plc-test-connection': 'http://127.0.0.1:50054',
       '/api/build-plc-test-exe': 'http://127.0.0.1:50054',
+      '/api/db-test-connection': 'http://127.0.0.1:50054',
       '/api/health': 'http://127.0.0.1:50054',
     },
   },

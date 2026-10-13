@@ -13,6 +13,8 @@ frontend already expects, so the frontend needs no changes:
   GET/POST /api/header-config        saved header branding
   GET/POST /api/page-selection       which app pages are switched on
   GET/POST /api/plc-config           saved PLC brand/connection info (App Builder gate + exe seed)
+  GET/POST /api/db-config            saved SQL Server connection info (Part Number column lookup)
+  POST /api/db-test-connection       live connect check against that SQL Server
   POST /api/generate-app-exe         build a standalone exe of this whole app
   GET  /api/generate-app-exe/{id}/status    poll a build started above
   GET  /api/generate-app-exe/{id}/download  fetch the finished exe
@@ -65,6 +67,13 @@ from plc_clients.mitsubishi_client import MitsubishiClient
 from plc_clients.omron_client import OmronClient
 from plc_clients.siemens_client import SiemensClient
 from tag_store import TagStore
+
+try:
+    import db_client
+except ImportError:
+    # pymssql not installed in this venv yet — see plc_publisher.py's own
+    # guarded import for why the rest of the app must keep working anyway.
+    db_client = None
 
 store = TagStore()
 
@@ -177,6 +186,7 @@ _register_config_route("/api/scada-config", "savedUserConfig.json")
 _register_config_route("/api/header-config", "savedHeaderConfig.json")
 _register_config_route("/api/page-selection", "savedPageSelection.json")
 _register_config_route("/api/plc-config", "savedPlcConfig.json")
+_register_config_route("/api/db-config", "savedDbConfig.json")
 
 
 # ── PLC Connection Test — live connect check against a real PLC, straight
@@ -227,6 +237,27 @@ async def plc_test_connection(cfg: PlcTestRequest):
     # the event loop so a slow or unreachable PLC doesn't stall the tag
     # WebSocket for every other connected client while this waits.
     return await asyncio.to_thread(_run_plc_test, cfg)
+
+
+# ── Database Connection Test — same one-shot pattern as the PLC test above,
+# but against SQL Server (db_client.py), for the Part Number column's
+# [dbo].[LoadPartDetails] lookup. Nothing here is persisted either.
+
+class DbTestRequest(BaseModel):
+    server: str
+    port: Optional[int] = None
+    database: str
+    username: str
+    password: str
+
+
+@app.post("/api/db-test-connection")
+async def db_test_connection(cfg: DbTestRequest):
+    if db_client is None:
+        return {"ok": False, "error": "pymssql is not installed in this backend's environment"}
+    # pymssql is synchronous network I/O too — same reasoning as the PLC
+    # test above for running it off the event loop.
+    return await asyncio.to_thread(db_client.test_connection, cfg.model_dump())
 
 
 # ── App Builder — package this whole app (frontend + backend) as one exe ──────

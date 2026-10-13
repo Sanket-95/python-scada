@@ -39,6 +39,14 @@ from plc_clients.omron_client import OmronClient
 from plc_clients.siemens_client import SiemensClient
 from tag_store import TagStore
 
+try:
+    import db_client
+except ImportError:
+    # pymssql not installed in this venv yet — the Part Number column simply
+    # stays dark (see _resolve_wagon_part_numbers) rather than taking down
+    # the rest of PLC polling, which must keep working regardless.
+    db_client = None
+
 POLL_INTERVAL_S = 0.5  # was 1.5 — the one real source of tag-change latency
 
 # Held across ticks so the connection is reused instead of reconnected every
@@ -194,6 +202,106 @@ def _station_extra_col_tags(saved_cfg: dict) -> list[tuple[str, str, str]]:
     return out
 
 
+# ── Part Number column — wagon event tags + a DB lookup ───────────────────
+# Each wagon logs its last Get/Put event: which station, what load, and
+# when. A Put (not Get) carries a load identity worth looking up — see
+# _resolve_wagon_part_numbers below, which runs after every poll's batch
+# read. Source of truth for the 6 required addresses per wagon:
+# userCfg.wagonPartNumberTags, keyed by wagon id (string) ->
+# {getPut, stnNo, year, month, date, loadNo}, configured on the Station Info
+# Column Config page's "⚙ Configure Part Number Tags" panel.
+_PART_NUMBER_FIELDS = (
+    ("getPut", "GETPUT", "int16"),
+    ("stnNo",  "STNNO",  "int16"),
+    ("year",   "YEAR",   "int16"),
+    ("month",  "MONTH",  "int16"),
+    ("date",   "DATE",   "int16"),
+    ("loadNo", "LOADNO", "uint16"),
+)
+
+
+def wagon_part_source_tag_name(wagon_id, suffix: str) -> str:
+    """The published tag NAME for one of a wagon's 6 Part-Number source
+    tags — synthesized (see _PART_NUMBER_FIELDS for the suffixes used)."""
+    return f"W{wagon_id}_PN_{suffix}"
+
+
+def _wagon_part_number_source_tags(saved_cfg: dict) -> list[tuple[str, str, str]]:
+    """[(tagName, plcAddress, dataType), ...] for every wagon's configured
+    Part Number source tag (all 6 required, but reads whichever has an
+    address set — see _resolve_wagon_part_numbers for what happens when one
+    is missing)."""
+    out = []
+    for wagon_id, tags in (saved_cfg.get("wagonPartNumberTags") or {}).items():
+        for cfg_key, suffix, dtype in _PART_NUMBER_FIELDS:
+            address = ((tags or {}).get(cfg_key) or "").strip()
+            if address:
+                out.append((wagon_part_source_tag_name(wagon_id, suffix), address, dtype))
+    return out
+
+
+def station_part_number_tag_name(station_id) -> str:
+    """The published tag NAME for a station's live Part Number — looked up
+    from the DB, not read straight off the PLC. Shared convention with the
+    frontend (WagonScada3D.jsx's partNumberValues)."""
+    return f"STATION_{station_id}_PARTNUMBER"
+
+
+# Latches the composed load-number string last looked up per wagon, so a
+# wagon sitting at Get/Put == 2 across many poll ticks doesn't re-query the
+# DB every 0.5s — only a genuinely new Put event (a different composed
+# string) triggers another lookup. Intentionally never cleared on Get (1):
+# per spec this represents "what's currently in this station," which stays
+# true until the next Put overwrites it, not something to blank out.
+_last_part_lookup: dict[str, str] = {}
+
+
+def _resolve_wagon_part_numbers(saved_cfg: dict, store: TagStore, values_by_name: dict) -> None:
+    wagon_cfg = saved_cfg.get("wagonPartNumberTags") or {}
+    if not wagon_cfg or db_client is None:
+        return
+    db_cfg = config_store.load_json("savedDbConfig.json")
+    if not db_cfg or not (db_cfg.get("server") or "").strip():
+        return
+
+    for wagon_id, _tags in wagon_cfg.items():
+        raw = {suffix: values_by_name.get(wagon_part_source_tag_name(wagon_id, suffix))
+               for _, suffix, _dt in _PART_NUMBER_FIELDS}
+        if any(v is None for v in raw.values()):
+            continue  # one of the 6 required tags isn't configured/answered yet
+
+        try:
+            get_put = int(raw["GETPUT"])
+            stn_no  = int(raw["STNNO"])
+            year    = int(raw["YEAR"])
+            month   = int(raw["MONTH"])
+            date    = int(raw["DATE"])
+            load_no = int(raw["LOADNO"])
+        except (TypeError, ValueError):
+            continue
+
+        if get_put != 2 or stn_no <= 0:
+            continue  # only a Put event with a real station number is worth looking up
+
+        # PLC stores the year as 2 digits (26 = 2026) — see CLAUDE.md.
+        composed = f"{2000 + year}/{month:02d}/{date:02d}-{load_no}"
+        if _last_part_lookup.get(wagon_id) == composed:
+            continue
+
+        try:
+            part_name = db_client.query_part_name(db_cfg, composed)
+        except Exception as e:
+            if DEBUG_LOG:
+                print(f"[DB] PartName lookup failed for W{wagon_id} ({composed}): {type(e).__name__}: {e}", flush=True)
+            continue  # leave _last_part_lookup alone so the next tick retries
+
+        _last_part_lookup[wagon_id] = composed
+        if part_name:
+            store.set_many([(station_part_number_tag_name(stn_no), part_name, "")])
+            if DEBUG_LOG:
+                print(f"[DB]   W{wagon_id} Put {composed} -> station {stn_no} PartName={part_name!r}", flush=True)
+
+
 # TEMP DEBUG — prints every poll's PLC connection + each tag's live read to
 # the console (this shows up in the exe's own console window too, since it's
 # built without --noconsole), so values can be eyeballed live against
@@ -214,7 +322,8 @@ def _poll_once(store: TagStore) -> None:
             + _mode_tags(user_cfg)
             + _station_param_tags(user_cfg)
             + _load_number_tags(user_cfg)
-            + _station_extra_col_tags(user_cfg))
+            + _station_extra_col_tags(user_cfg)
+            + _wagon_part_number_source_tags(user_cfg))
     if not tags:
         return
 
@@ -262,6 +371,7 @@ def _poll_once(store: TagStore) -> None:
                     print(f"[PLC]   {name} @ {address} ({dtype}) = {wire_value}", flush=True)
         if batch:
             store.set_many(batch)
+        _resolve_wagon_part_numbers(user_cfg, store, {name: val for name, val, _unit in batch})
     except Exception as e:
         # Could be one bad address or the connection itself going bad — can't
         # tell which from here, so drop the held connection either way and

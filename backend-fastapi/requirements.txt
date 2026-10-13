@@ -9,3 +9,7 @@ pyinstaller>=6.0
 python-snap7      # Siemens S7
 finscommand        # Omron FINS
 pymcprotocol==0.3.0  # Mitsubishi, MC protocol 3E frame (see plc_clients/mitsubishi_client.py)
+
+# Database Connection Test screen + the Part Number column's PartName lookup
+# (db_client.py) — pure-Python TDS, no separate ODBC driver install needed.
+pymssql

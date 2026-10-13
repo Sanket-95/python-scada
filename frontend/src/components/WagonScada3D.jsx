@@ -19,12 +19,13 @@ import TankPartitionConfigPage from './TankPartitionConfigPage';
 import CrossTrolleyConfigPage from './CrossTrolleyConfigPage';
 import AppBuilderPage from './AppBuilderPage';
 import PlcConnectionTestPage from './PlcConnectionTestPage';
+import DbConnectionTestPage from './DbConnectionTestPage';
 import {
   loadPageSelection, savePageSelection,
   loadPageSelectionFromServer, pruneToCatalog, isPageEnabled,
 } from '../config/pageSelection';
 import { isRunningInsideExe } from '../config/runtimeInfo';
-import { getTankTags, getWagonTags, getStationParams, getStationLoadNumbers, getStationExtraCols, getStationExtraValues, getStationColumnOrder } from '../config/tagConfig';
+import { getTankTags, getWagonTags, getStationParams, getStationLoadNumbers, getStationExtraCols, getStationExtraValues, getStationColumnOrder, getWagonPartNumberTags } from '../config/tagConfig';
 import barralImg from '../../barral.png';
 import {
   loadUserConfig, saveUserConfig, buildSimConfig,
@@ -1395,6 +1396,7 @@ const NAV = [
   { id: 'station-cols',   icon: '≡', label: 'StationWise Info Config' },
   { type: 'sep', label: 'DIAGNOSTICS' },
   { id: 'plc-test',      icon: '⚡', label: 'PLC Connection Test' },
+  { id: 'db-test',       icon: '🗄', label: 'Database Connection Test' },
   { type: 'sep', label: 'DEPLOY' },
   { id: 'app-builder',   icon: '⧉', label: 'App Builder', devOnly: true },
 ];
@@ -1636,12 +1638,23 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   const stationExtraCols  = useMemo(() => getStationExtraCols(userCfg), [userCfg]);
   const stationExtraAddrs = useMemo(() => getStationExtraValues(userCfg), [userCfg]);
   const stationColumnOrder = useMemo(() => getStationColumnOrder(userCfg), [userCfg]);
+  const wagonPartNumberTags = useMemo(() => getWagonPartNumberTags(userCfg), [userCfg]);
 
   // Station Info Column Config's user-added custom columns, and the
   // left/right order of every column (fixed + custom) — all three are
   // saved together from that page's one Save button.
   const handleSaveStationExtra = (newCols, newAddrs, newOrder) => {
     const newCfg = { ...userCfg, stationExtraCols: newCols, stationExtraValues: newAddrs, stationColOrder: newOrder };
+    saveUserConfig(newCfg);
+    saveUserConfigToFile(newCfg);
+    setUserCfg(newCfg);
+  };
+
+  // Part Number column's per-wagon required tags (Column Config page's "⚙
+  // Configure Part Number Tags" panel) — saved from the same Save button as
+  // the rest of that page, just a separate field in userCfg.
+  const handleSaveWagonPartNumberTags = newTags => {
+    const newCfg = { ...userCfg, wagonPartNumberTags: newTags };
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
@@ -1911,6 +1924,20 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
     return out;
   }, [stationExtraAddrs, grpcTags]);
 
+  // Live Part Number per station, keyed the same way plc_publisher.py
+  // publishes it (station_part_number_tag_name: "STATION_<id>_PARTNUMBER")
+  // — a DB-derived value, not a plain PLC read, so unlike the other live-
+  // value maps above this one can't be built from a known set of addresses;
+  // it scans whatever STATION_*_PARTNUMBER keys currently exist in grpcTags.
+  const partNumberValues = useMemo(() => {
+    const out = {};
+    Object.entries(grpcTags).forEach(([name, tag]) => {
+      const m = name.match(/^STATION_(\d+)_PARTNUMBER$/);
+      if (m) out[m[1]] = tag.value;
+    });
+    return out;
+  }, [grpcTags]);
+
   // Tank tag values mirror simulation station hasLoad — future: replaced by gRPC writes
   const tagValues = useMemo(() => {
     const v = {};
@@ -2179,6 +2206,7 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               extraCols={stationExtraCols}
               extraLiveValues={stationExtraLiveValues}
               columnOrder={stationColumnOrder}
+              partNumberValues={partNumberValues}
               connected={grpcConnected}
               onBack={() => setView(lastSceneView)}
             />
@@ -2191,8 +2219,11 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               extraCols={stationExtraCols}
               extraAddrs={stationExtraAddrs}
               columnOrder={stationColumnOrder}
+              wagonTags={wagonTags}
+              partNumberTags={wagonPartNumberTags}
               onSave={handleSaveStationCols}
               onSaveExtra={handleSaveStationExtra}
+              onSavePartNumberTags={handleSaveWagonPartNumberTags}
               onBack={() => setView('config')}
             />
           )}
@@ -2240,6 +2271,9 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
           )}
           {view === 'plc-test' && (
             <PlcConnectionTestPage onBack={() => setView(lastSceneView)} />
+          )}
+          {view === 'db-test' && (
+            <DbConnectionTestPage onBack={() => setView(lastSceneView)} />
           )}
           {view === 'tank-partitions' && (
             <TankPartitionConfigPage

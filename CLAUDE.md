@@ -53,7 +53,15 @@ savedUserConfig.json / savedPlcConfig.json <--- config_store.py ------+
   Load Number tags, all in one batch per poll tick. Has a `DEBUG_LOG` flag that
   prints every tag read to the console (shows in a built exe's console window too,
   since exes are built without `--noconsole`) — extremely useful for diagnosing live
-  issues, was used heavily throughout this project's PLC debugging.
+  issues, was used heavily throughout this project's PLC debugging. Also runs
+  `_resolve_wagon_part_numbers` after every poll's batch read — see "Part Number
+  column" under Feature notes.
+- `db_client.py` — SQL Server access for the Part Number column's PartName lookup,
+  via `pymssql` (chosen over `pyodbc` specifically so a built exe doesn't depend on
+  the Microsoft ODBC Driver for SQL Server being separately installed on whatever
+  machine it runs on). Holds one persistent connection, reused across polls, same
+  pattern as `plc_publisher.py`'s PLC connection. `test_connection()` backs the
+  Database Connection Test page; `query_part_name()` backs the live lookup.
 - `plc_clients/mitsubishi_client.py` — wraps `pymcprotocol.Type3E` with a **framed
   receive fix** (`_recv_exact`) and a **batched multi-tag read** (`read_tags_batch`).
   Both fixes were hard-won — see "The Mitsubishi PLC Saga" below before touching
@@ -66,8 +74,9 @@ savedUserConfig.json / savedPlcConfig.json <--- config_store.py ------+
   the last batch to a newly-connected client).
 - `exe_builder.py` — builds the **full app exe** (frontend + backend bundled by
   PyInstaller via the App Builder UI page). Seeds `savedPageSelection/PlcConfig/
-  UserConfig/HeaderConfig.json` into the exe — nothing else. Any new persisted
-  feature that isn't inside `userCfg` won't make it into a generated exe.
+  UserConfig/HeaderConfig/DbConfig.json` into the exe — nothing else. Any new persisted
+  feature that isn't inside `userCfg` (or one of these other seeded files) won't
+  make it into a generated exe.
 - `test_exe_builder.py` + `plc_test_logger.py` — builds a **tiny console-only exe**
   (no frontend, no FastAPI) that just connects to the saved PLC config and prints a
   handful of ad-hoc tags to the console forever. Triggered from the "Quick Test EXE"
@@ -90,7 +99,12 @@ savedUserConfig.json / savedPlcConfig.json <--- config_store.py ------+
   specifically so the sim doesn't "pause" while the browser tab is hidden/minimized
   — see Gotchas.
 - `config/tagConfig.js` — tag-config helpers: `getTankTags`, `getWagonTags`,
-  `getStationParams`, `getStationLoadNumbers`, `TAG_DATA_TYPES`.
+  `getStationParams`, `getStationLoadNumbers`, `getStationExtraCols`/
+  `getStationExtraValues`, `getStationColumnOrder`/`orderStationColumns`/
+  `FIXED_STATION_COLS`, `getWagonPartNumberTags`/`PART_NUMBER_TAG_FIELDS`,
+  `TAG_DATA_TYPES`.
+- `config/dbConfig.js` — SQL Server connection form persistence (Database Connection
+  Test page), same dual localStorage + backend pattern as `config/plcConfig.js`.
 - `components/StationNamesConfigPage.jsx` — "STATION INFO — NAME CONFIGURATION"
   page. Shows each station's name (read-only, sourced from Mimic Page Config's
   label — this page used to have its own separate editable name, removed), the
@@ -104,6 +118,11 @@ savedUserConfig.json / savedPlcConfig.json <--- config_store.py ------+
   wagon location tag, up-lift/down-lift tags, auto/manual/service mode tags.
 - `components/PlcConnectionTestPage.jsx` — brand/IP/port form + live connection
   test + the "Quick Test EXE" generator (array-fill tag entry, build/download).
+- `components/DbConnectionTestPage.jsx` — SQL Server form (server/port/database/
+  username/password) + live connection test, modeled directly on
+  `PlcConnectionTestPage.jsx`'s layout/pattern. Sidebar nav id `db-test`, placed
+  right under PLC Connection Test in the DIAGNOSTICS section. This is what the
+  Part Number column (see Feature notes) queries live against.
 - `components/TankTagsPage.jsx` — "MIMIC PAGE CONFIGURATION" — tag name/label/PLC
   address/type per tank, plus Excel import (`ExcelTagImportModal.jsx`).
 
@@ -314,6 +333,56 @@ bug, or a wrong port — not a wrong protocol.
   replaced. **CommStatus** is still wired to the real `connected` prop
   (`useTagSocket`'s connection state, threaded down from `WagonScada3D.jsx`)
   — genuine live information, kept.
+- **Part Number column** (the Column Config page's 4th fixed column, alongside
+  Station No/Name/Load No Tag — `FIXED_STATION_COLS` in `tagConfig.js`): unlike
+  every other column, its value isn't read from a plain per-station PLC address —
+  it's derived from a **wagon event + a SQL Server lookup**. Each wagon logs its
+  last Get/Put event on 6 PLC tags (`Get(1)/Put(2)`, `Station No`, `Year`/`Month`/
+  `Date` of the event, `Load No` — all `int16` except `Load No`, `uint16`). When a
+  wagon's `Get(1)/Put(2)` tag reads **2 (Put)**, `plc_publisher.py`'s
+  `_resolve_wagon_part_numbers` (runs after every poll's batch read, since the 6
+  source tags are folded into that same batch — see
+  `_wagon_part_number_source_tags`) composes a load-number string
+  `{2000+year}/{month:02d}/{date:02d}-{loadNo}` — e.g. year `26` → `2026` (**the
+  PLC stores the year as 2 digits on purpose, this is not a bug** — confirmed
+  against a live test-exe reading that matched the actual current date) — and
+  looks it up via `db_client.query_part_name()`:
+  `SELECT [PartName] FROM [dbo].[LoadPartDetails] WHERE LoadNumber = %s`
+  (parameterized, against whatever `database` is set on the Database Connection
+  Test page). The result is published under `STATION_<id>_PARTNUMBER` (`id` =
+  that event's own `Station No` tag value, read dynamically — the backend doesn't
+  need to know in advance which station a wagon will name) — the exact same
+  per-station publish convention as Load Number, so
+  `StationInfoPage.jsx`'s `partNumberValues` prop just scans `grpcTags` for
+  `STATION_*_PARTNUMBER` keys. **Latched, not cleared on Get (1)**: a station's
+  last-looked-up PartName stays shown until a *different* composed load number
+  triggers a new lookup — per spec this represents "what's currently in this
+  station," not something to blank out when a wagon's Get/Put bit flips. The DB
+  is only queried on a genuinely new composed string per wagon (`_last_part_lookup`
+  cache), not every 0.5s poll tick while a wagon sits at Put=2. Because the 6
+  source tags are **per-wagon**, not per-station, they can't be configured as a
+  per-station address like every other column — they get their own panel on the
+  Column Config page ("⚙ Configure Part Number Tags", one row per wagon, 6
+  address inputs), saved via `onSavePartNumberTags` into
+  `userCfg.wagonPartNumberTags` (`{wagonId: {getPut, stnNo, year, month, date,
+  loadNo}}`) alongside everything else from that page's one Save button. The
+  Column Config page's own Part Number *cell* just shows a static "Live — wagon
+  Put event" label per row (there's nothing per-station to configure there).
+  `backend-fastapi/db_client.py` uses `pymssql`, not `pyodbc` — picked
+  specifically because a generated exe can't guarantee the Microsoft ODBC Driver
+  for SQL Server is installed on whatever machine it runs on, while `pymssql`
+  has no external dependency (same reasoning as every other "must survive into
+  an exe" decision in this file). Connection info lives in `savedDbConfig.json`
+  (own file, same `_register_config_route`/seed pattern as `savedPlcConfig.json`
+  — **not** inside `userCfg`, since it's credentials, not app config), edited on
+  the new **Database Connection Test** page (`DbConnectionTestPage.jsx`,
+  `config/dbConfig.js`, `POST /api/db-test-connection`) — placed in the sidebar
+  right under PLC Connection Test. If a new PLC/station ever needs Part-Number-
+  style "derived from several tags + an external lookup" logic, follow this same
+  shape: fold the source tags into the normal PLC batch read, resolve/publish in
+  a dedicated function that runs after `store.set_many(batch)`, and give it its
+  own per-entity (not per-station) config panel rather than forcing it into the
+  generic "+Add Column" one-address-one-datatype shape.
 
 ## Gotchas (don't repeat these)
 

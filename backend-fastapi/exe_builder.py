@@ -106,7 +106,7 @@ def _run_build(build_id: str, client_name: str, selection: dict) -> None:
         # over into the exe exactly as-is, including every tank/wagon tag's
         # name, PLC address, and data type (savedUserConfig.json).
         (seed_dir / "savedPageSelection.json").write_text(json.dumps(selection, indent=2), encoding="utf-8")
-        for filename in ("savedPlcConfig.json", "savedUserConfig.json", "savedHeaderConfig.json"):
+        for filename in ("savedPlcConfig.json", "savedUserConfig.json", "savedHeaderConfig.json", "savedDbConfig.json"):
             (seed_dir / filename).write_text(
                 config_store.read_json_text(filename), encoding="utf-8"
             )

@@ -145,10 +145,33 @@ export function getStationExtraValues(userCfg) {
 // column — 'stNo' / 'stName' / 'loadNo' — plus each custom column's own id
 // (from stationExtraCols). Source of truth: userCfg.stationColOrder, a flat
 // array of those ids in display order.
-export const FIXED_STATION_COLS = ['stNo', 'stName', 'loadNo'];
+export const FIXED_STATION_COLS = ['stNo', 'stName', 'loadNo', 'partNumber'];
 
 export function getStationColumnOrder(userCfg) {
   return userCfg.stationColOrder || null; // null → caller builds the default order
+}
+
+// ── Part Number column's required wagon tags ──────────────────────────────
+// Each wagon logs its last Get/Put event on 6 PLC tags (Get=1/Put=2, Station
+// No, Year/Month/Date of the event, and Load No) — when a wagon's Get/Put
+// tag reads 2 (a Put), the backend composes a load-number string from
+// Year/Month/Date/Load No and looks up its PartName in SQL Server
+// ([dbo].[LoadPartDetails] — see db_client.py / savedDbConfig.json),
+// publishing the result under that event's Station No. Source of truth:
+// userCfg.wagonPartNumberTags, keyed by wagon id (string) -> {getPut, stnNo,
+// year, month, date, loadNo}, each a PLC address string, configured on the
+// Station Info Column Config page's "⚙ Configure Part Number Tags" panel.
+export const PART_NUMBER_TAG_FIELDS = [
+  { id: 'getPut', label: 'Get(1)/Put(2)' },
+  { id: 'stnNo',  label: 'Station No' },
+  { id: 'year',   label: 'Year' },
+  { id: 'month',  label: 'Month' },
+  { id: 'date',   label: 'Date' },
+  { id: 'loadNo', label: 'Load No' },
+];
+
+export function getWagonPartNumberTags(userCfg) {
+  return userCfg.wagonPartNumberTags || {};
 }
 
 // Resolves a saved order against the columns that actually exist right now:

@@ -44,6 +44,7 @@ export const PAGE_CATALOG = [
     group: 'DIAGNOSTICS',
     pages: [
       { id: 'nav:plc-test', label: 'PLC Connection Test' },
+      { id: 'nav:db-test', label: 'Database Connection Test' },
     ],
   },
   {

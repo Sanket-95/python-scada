@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { TAG_DATA_TYPES, orderStationColumns } from '../config/tagConfig';
+import { TAG_DATA_TYPES, orderStationColumns, PART_NUMBER_TAG_FIELDS } from '../config/tagConfig';
 
 // ── Default column definitions ─────────────────────────────────────────────
 // Empty — StationInfoPage.jsx falls back to this only when stationColCfg has
@@ -31,9 +31,21 @@ const T = {
 // also be moved left/right with its header's ◀/▶ buttons; that sequence
 // (stationColOrder) is saved in the same onSaveExtra call and
 // StationInfoPage.jsx renders its own columns in this exact same order.
+// A fourth fixed column, PART NUMBER, is live/derived rather than a plain
+// per-station address: each wagon logs a Get/Put event on 6 PLC tags, and
+// when Get/Put reads 2 (Put) the backend composes a load-number string from
+// that event's Year/Month/Date/Load No and looks up its PartName in SQL
+// Server, publishing the result under that event's Station No (see
+// db_client.py / plc_publisher.py's _resolve_wagon_part_numbers). Since
+// that's per-WAGON config, not per-station, it gets its own "⚙ Configure
+// Part Number Tags" panel (one row per wagon, 6 address inputs) rather than
+// a per-station cell — saved via onSavePartNumberTags into
+// userCfg.wagonPartNumberTags, alongside everything else from the same Save
+// button.
 export default function StationColumnConfigPage({
   tankTags = {}, stationLoadNumbers = {}, extraCols = [], extraAddrs = {}, columnOrder,
-  onSave, onSaveExtra, onBack,
+  wagonTags = {}, partNumberTags = {},
+  onSave, onSaveExtra, onSavePartNumberTags, onBack,
 }) {
   // ── User-added custom columns ───────────────────────────────────────────
   // Local editable drafts, seeded once from the saved props (same pattern as
@@ -48,6 +60,18 @@ export default function StationColumnConfigPage({
   const [newColType, setNewColType] = useState(TAG_DATA_TYPES[0].id);
   const [colStarts, setColStarts]   = useState({});   // {colId: start-address input value}
   const [colErrors, setColErrors]   = useState({});   // {colId: error text}
+
+  // ── Part Number — per-wagon required tags ───────────────────────────────
+  const [pnTags, setPnTags]       = useState(() => partNumberTags);
+  const [showPnConfig, setShowPnConfig] = useState(false);
+
+  const pnWagonIds = useMemo(() => (
+    Object.keys(wagonTags).map(Number).sort((a, b) => a - b)
+  ), [wagonTags]);
+
+  const setPnCell = (wagonId, fieldId, value) => {
+    setPnTags(prev => ({ ...prev, [wagonId]: { ...(prev[wagonId] || {}), [fieldId]: value } }));
+  };
 
   const addColumn = () => {
     const name = newColName.trim();
@@ -192,6 +216,15 @@ export default function StationColumnConfigPage({
         </th>
       );
     }
+    if (colId === 'partNumber') {
+      return (
+        <th key={colId} style={thBase(130)}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <span>PART NUMBER</span><MoveButtons colId={colId} />
+          </div>
+        </th>
+      );
+    }
     const col = cols.find(c => c.id === colId);
     if (!col) return null;
     return (
@@ -257,6 +290,16 @@ export default function StationColumnConfigPage({
           color: hasTag ? T.textWh : T.textDim, fontWeight: hasTag ? 700 : 400,
         }}>
           {hasTag ? row.loadNoTag : 'Not configured'}
+        </td>
+      );
+    }
+    if (colId === 'partNumber') {
+      // Not a per-station address — driven by whichever wagon's Put event
+      // last named this station (see the ⚙ panel above), so every row just
+      // shows that it's live rather than a configurable value here.
+      return (
+        <td key={colId} style={{ ...TD, padding: '6px 10px', fontSize: 11, textAlign: 'center', color: T.textDim, fontStyle: 'italic' }}>
+          Live — wagon Put event
         </td>
       );
     }
@@ -363,7 +406,75 @@ export default function StationColumnConfigPage({
             }}>Cancel</button>
           </>
         )}
+
+        <button onClick={() => setShowPnConfig(s => !s)} style={{
+          padding: '7px 16px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+          background: showPnConfig ? T.teal : T.panelBg,
+          border: `1.5px solid ${T.teal}`, color: showPnConfig ? '#FFFFFF' : T.tealBr, borderRadius: 6,
+        }}>⚙ Configure Part Number Tags</button>
       </div>
+
+      {/* ── Part Number — per-wagon required tags ── */}
+      {showPnConfig && (
+        <div style={{
+          background: '#F4F5FA', borderBottom: `1px solid ${T.border}`,
+          padding: '12px 28px', flexShrink: 0,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: T.tealBr, letterSpacing: 1, marginBottom: 4 }}>
+            PART NUMBER — REQUIRED TAGS (PER WAGON)
+          </div>
+          <div style={{ fontSize: 10.5, color: T.textDim, marginBottom: 10, lineHeight: 1.5 }}>
+            When a wagon's Get(1)/Put(2) tag reads 2, its Year/Month/Date/Load No tags are combined
+            into a load number and looked up in SQL Server (see Database Connection Test) for a
+            PartName, shown on the station named by that wagon's Station No tag.
+          </div>
+          {pnWagonIds.length === 0 ? (
+            <div style={{ fontSize: 12, color: T.textDim, fontStyle: 'italic' }}>No wagons configured</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '4px 8px', fontSize: 9, fontWeight: 700, color: T.tealBr, textAlign: 'center' }}>WAGON</th>
+                    {PART_NUMBER_TAG_FIELDS.map(f => (
+                      <th key={f.id} style={{ padding: '4px 8px', fontSize: 9, fontWeight: 700, color: T.tealBr, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        {f.label.toUpperCase()}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pnWagonIds.map(wId => {
+                    const wagonId = String(wId);
+                    return (
+                      <tr key={wagonId}>
+                        <td style={{ padding: '4px 8px', fontSize: 12, fontWeight: 700, color: T.textLt, textAlign: 'center' }}>
+                          W{wagonId}
+                        </td>
+                        {PART_NUMBER_TAG_FIELDS.map(f => (
+                          <td key={f.id} style={{ padding: '4px 6px' }}>
+                            <input
+                              value={pnTags[wagonId]?.[f.id] || ''}
+                              onChange={e => setPnCell(wagonId, f.id, e.target.value)}
+                              placeholder="e.g. D2200"
+                              style={{
+                                width: 100, boxSizing: 'border-box',
+                                background: T.inputBg, color: T.inputText,
+                                border: `1.5px solid ${T.border}`, borderRadius: 4,
+                                padding: '4px 7px', fontSize: 11.5, fontFamily: 'monospace', outline: 'none',
+                              }}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Table ── */}
       <div style={{ flex: 1, overflow: 'auto' }}>
@@ -412,7 +523,7 @@ export default function StationColumnConfigPage({
           color: T.textLt, cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',
         }}>← Back to Config</button>
 
-        <button onClick={() => { onSave(rows); onSaveExtra?.(cols, addrs, order); }} style={{
+        <button onClick={() => { onSave(rows); onSaveExtra?.(cols, addrs, order); onSavePartNumberTags?.(pnTags); }} style={{
           padding: '10px 32px', fontSize: 13, fontWeight: 700,
           background: T.teal, border: 'none', color: '#FFFFFF',
           cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',

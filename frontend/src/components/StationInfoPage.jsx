@@ -10,8 +10,11 @@ import { orderStationColumns } from '../config/tagConfig';
 // pages can never disagree on sequence). No other columns exist on this
 // page — Wagon/Operation/Duration/Client Name/Part Name/Temp/Current/pH
 // were all removed since none of them are part of the Column Config page's
-// column set.
-const COL_LABELS = { stNo: 'Station No', stName: 'Station Name', loadNo: 'Load No' };
+// column set. Part Number is the one fixed column that's fully live/derived
+// (a wagon's Put event -> SQL Server PartName lookup, see
+// plc_publisher.py's _resolve_wagon_part_numbers) rather than read from a
+// per-station PLC address — see the 'partNumber' case in cell() below.
+const COL_LABELS = { stNo: 'Station No', stName: 'Station Name', loadNo: 'Load No', partNumber: 'Part Number' };
 
 const T = {
   bg:      '#F0F2F6', panelBg: '#FFFFFF', headerBg: '#E8EBF4',
@@ -49,7 +52,7 @@ function saveTablePrefs(prefs) {
 export default function StationInfoPage({
   wagons = [], stations = [], colConfig, stationNames = [], tankTags = {},
   loadNumberValues = {}, extraCols = [], extraLiveValues = {}, columnOrder,
-  connected = false, onBack,
+  partNumberValues = {}, connected = false, onBack,
 }) {
   // Same column set AND sequence as the Column Config page (columnOrder is
   // its saved stationColOrder) — custom columns reflect that same column's
@@ -269,6 +272,18 @@ export default function StationInfoPage({
                         {loadNo != null ? loadNo : '—'}
                       </td>
                     );
+                  case 'partNumber': {
+                    // Looked up by the backend from SQL Server on this
+                    // station's last wagon Put event (STATION_<id>_PARTNUMBER
+                    // — see plc_publisher.py's _resolve_wagon_part_numbers).
+                    // "—" until a Put event has resolved one for this station.
+                    const partNumber = partNumberValues[String(sn)];
+                    return (
+                      <td key={id} style={tdBase({ color: partNumber ? T.textWh : T.textDim, fontWeight: partNumber ? 700 : 400 })}>
+                        {partNumber || '—'}
+                      </td>
+                    );
+                  }
                   default: {
                     // Custom user-added column (Column Config page's "+ Add
                     // Column") — live value from extraLiveValues, keyed the

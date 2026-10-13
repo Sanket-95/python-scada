@@ -157,8 +157,8 @@ export default function DbConnectionTestPage({ onBack }) {
                 </Field>
               </div>
               <div style={{ width: 140 }}>
-                <Field label="PORT">
-                  <TextField type="number" value={cfg.port} onChange={v => update({ port: v })} placeholder="1433" />
+                <Field label="PORT" note="Leave blank for a named instance (e.g. .\SQLEXPRESS) — resolved automatically">
+                  <TextField type="number" value={cfg.port} onChange={v => update({ port: v })} placeholder="blank, or 1433" />
                 </Field>
               </div>
             </div>

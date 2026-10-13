@@ -9,8 +9,12 @@
 const KEY = 'scada_db_config_v1'
 
 export function defaultDbConfig() {
+  // port left blank, not 1433: a named instance (e.g. .\SQLEXPRESS) resolves
+  // its own port via the SQL Server Browser service when none is given —
+  // forcing 1433 by default would break that for the common named-instance
+  // case. Only set a port explicitly for a default/standalone instance.
   return {
-    server: '', port: 1433, database: '', username: '', password: '',
+    server: '', port: '', database: '', username: '', password: '',
   }
 }
 

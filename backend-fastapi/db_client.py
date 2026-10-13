@@ -35,15 +35,23 @@ def _drop_held_conn():
 
 
 def _connect(cfg: dict):
-    return pymssql.connect(
+    kwargs = dict(
         server=cfg.get("server") or "",
-        port=str(cfg.get("port") or 1433),
         database=cfg.get("database") or "",
         user=cfg.get("username") or "",
         password=cfg.get("password") or "",
         login_timeout=5,
         timeout=5,
     )
+    # Only pass a port when one is actually set. A named instance (e.g.
+    # ".\SQLEXPRESS") resolves its own (often dynamic) port via the SQL
+    # Server Browser service (UDP 1434) when no port is given — forcing 1433
+    # here would break that resolution and fail to connect for the common
+    # "default/standalone instance on 1433" case, port stays optional.
+    port = cfg.get("port")
+    if port:
+        kwargs["port"] = str(port)
+    return pymssql.connect(**kwargs)
 
 
 def _get_conn(cfg: dict):

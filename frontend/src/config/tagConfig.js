@@ -138,6 +138,33 @@ export function getStationExtraValues(userCfg) {
   return userCfg.stationExtraValues || {};
 }
 
+// ── Station Column Config's column ORDER ──────────────────────────────────
+// Both StationColumnConfigPage.jsx (where it's edited with move-left/
+// move-right buttons) and StationInfoPage.jsx (which must display columns
+// in this exact same sequence) need to agree on one canonical id per fixed
+// column — 'stNo' / 'stName' / 'loadNo' — plus each custom column's own id
+// (from stationExtraCols). Source of truth: userCfg.stationColOrder, a flat
+// array of those ids in display order.
+export const FIXED_STATION_COLS = ['stNo', 'stName', 'loadNo'];
+
+export function getStationColumnOrder(userCfg) {
+  return userCfg.stationColOrder || null; // null → caller builds the default order
+}
+
+// Resolves a saved order against the columns that actually exist right now:
+// drops ids for columns that were since removed, and appends (at the end,
+// in their natural order) any column — fixed or custom — not yet present in
+// the saved order, e.g. a custom column added after the order was last
+// saved. Both pages call this the same way so they can never disagree.
+export function orderStationColumns(order, extraCols) {
+  const customIds = extraCols.map(c => c.id);
+  const known = new Set([...FIXED_STATION_COLS, ...customIds]);
+  const base = (order && order.length ? order : [...FIXED_STATION_COLS, ...customIds])
+    .filter(id => known.has(id));
+  const missing = [...FIXED_STATION_COLS, ...customIds].filter(id => !base.includes(id));
+  return [...base, ...missing];
+}
+
 // Returns { lineLabel, wagons: [{id, wagonIdx}] } groups for display
 export function getWagonsByLine(userCfg) {
   let wId = 1;

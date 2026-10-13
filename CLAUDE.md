@@ -260,29 +260,47 @@ bug, or a wrong port — not a wrong protocol.
   (`station_extra_col_tag_name` in `plc_publisher.py` — frontend and backend
   must agree on this exact naming, same convention as `station_param_tag_name`/
   `station_load_number_tag_name`), read with that column's own data type.
-  `StationInfoPage.jsx` reflects these same columns (appended after the fixed
-  `INFO_COLS`) with their live value from `extraLiveValues`
-  (`{stationId: {colId: value}}`, built in `WagonScada3D.jsx` from
-  `grpcTags` — "—" until a PLC is connected and that station has an address
-  configured for that column). **`StationInfoPage.jsx`'s column set is now
-  exactly the Column Config page's column set, nothing more** — on explicit
-  request ("only shows column data whose configured in [Column Config]"),
-  its `INFO_COLS` was cut down from an earlier fixed 13-column list (Wagon,
-  Operation, Station No, Station Name, Load No, Duration, Client Name, Part
-  Name, Temp PV, Temp SV, Current PV, Current SV, pH PV) to just **Station
-  No, Station Name, Load No** — the three the Column Config page always
-  shows — plus any custom columns from `extraCols`. Wagon/Operation (which
-  wagon is at a station, its current operation) and the Temp/Current/pH
-  `stationParamValues`-driven columns were deleted outright, not hidden —
-  none of them are part of the Column Config page's column set, so per that
-  instruction they don't belong here; `stationParamValues` is no longer a
-  prop of this page at all (still used elsewhere, e.g. the hover tooltip —
-  see `WagonScada3D.jsx`). **If a future request wants per-station
-  operational/parameter data back on this page, the right fix is to make it
-  configurable on the Column Config page first** (e.g. another custom
-  column, or a new fixed one there), not to re-add it directly to
-  `StationInfoPage.jsx` — that would reopen the exact mismatch this request
-  closed. `colConfig` is still read here, but only to source the **Station
+  `StationInfoPage.jsx` reflects these same columns with their live value
+  from `extraLiveValues` (`{stationId: {colId: value}}`, built in
+  `WagonScada3D.jsx` from `grpcTags` — "—" until a PLC is connected and that
+  station has an address configured for that column). **`StationInfoPage.jsx`'s
+  column set is now exactly the Column Config page's column set, nothing
+  more** — on explicit request ("only shows column data whose configured in
+  [Column Config]"), its old fixed 13-column list (Wagon, Operation, Station
+  No, Station Name, Load No, Duration, Client Name, Part Name, Temp PV, Temp
+  SV, Current PV, Current SV, pH PV) was cut down to just **Station No,
+  Station Name, Load No** — the three the Column Config page always shows —
+  plus any custom columns. Wagon/Operation (which wagon is at a station, its
+  current operation) and the Temp/Current/pH `stationParamValues`-driven
+  columns were deleted outright, not hidden — none of them are part of the
+  Column Config page's column set, so per that instruction they don't belong
+  here; `stationParamValues` is no longer a prop of this page at all (still
+  used elsewhere, e.g. the hover tooltip — see `WagonScada3D.jsx`). **If a
+  future request wants per-station operational/parameter data back on this
+  page, the right fix is to make it configurable on the Column Config page
+  first** (e.g. another custom column, or a new fixed one there), not to
+  re-add it directly to `StationInfoPage.jsx` — that would reopen the exact
+  mismatch this request closed. **Every column — the three fixed ones
+  included — can also be moved left/right**, per explicit request that
+  Column Config's column order "also reflect in station wise info screen".
+  Each header on `StationColumnConfigPage.jsx` gets ◀/▶ buttons
+  (`moveColumn`, swaps with the adjacent id in a local `order` array of
+  column ids — nothing is pinned); the canonical ids both pages share are
+  `'stNo'`/`'stName'`/`'loadNo'` for the fixed three (note: **not**
+  `'loadNoTag'`, so the id matches `StationInfoPage.jsx`'s own id for that
+  same conceptual column) plus each custom column's own id. Persisted as
+  `userCfg.stationColOrder` (flat array of ids), saved in the same
+  `onSaveExtra(cols, addrs, order)` call. Both pages resolve a saved order
+  against whatever columns currently exist via the shared
+  `orderStationColumns(order, extraCols)` helper in `tagConfig.js` (also
+  exports `FIXED_STATION_COLS`) — it drops ids for columns since removed and
+  appends any column not yet in the saved order (e.g. one added after the
+  order was last saved) at the end, so the two pages can never disagree on
+  sequence. `StationInfoPage.jsx` builds its `activeCols` by mapping that
+  same ordered id list through a small `COL_LABELS` lookup (fixed ids) /
+  `extraCols` (custom ids) — don't let this drift back into a separately
+  maintained fixed `INFO_COLS` list, or the two pages' column order will
+  silently diverge again. `colConfig` is still read here, but only to source the **Station
   No / Station Name cell values** (`colConfig[absIdx]?.stationNo` / `.label`,
   matched by row position against the Column Config page's saved snapshot —
   the "reflect this screen's data onto StationWise Info" wiring), falling

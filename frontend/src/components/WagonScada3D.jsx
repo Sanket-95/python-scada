@@ -24,7 +24,7 @@ import {
   loadPageSelectionFromServer, pruneToCatalog, isPageEnabled,
 } from '../config/pageSelection';
 import { isRunningInsideExe } from '../config/runtimeInfo';
-import { getTankTags, getWagonTags, getStationParams, getStationLoadNumbers, getStationExtraCols, getStationExtraValues } from '../config/tagConfig';
+import { getTankTags, getWagonTags, getStationParams, getStationLoadNumbers, getStationExtraCols, getStationExtraValues, getStationColumnOrder } from '../config/tagConfig';
 import barralImg from '../../barral.png';
 import {
   loadUserConfig, saveUserConfig, buildSimConfig,
@@ -1635,12 +1635,13 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   const stationLoadNumbers = useMemo(() => getStationLoadNumbers(userCfg), [userCfg]);
   const stationExtraCols  = useMemo(() => getStationExtraCols(userCfg), [userCfg]);
   const stationExtraAddrs = useMemo(() => getStationExtraValues(userCfg), [userCfg]);
+  const stationColumnOrder = useMemo(() => getStationColumnOrder(userCfg), [userCfg]);
 
-  // Station Info Column Config's user-added custom columns — both the
-  // column definitions and every station's configured address for them are
+  // Station Info Column Config's user-added custom columns, and the
+  // left/right order of every column (fixed + custom) — all three are
   // saved together from that page's one Save button.
-  const handleSaveStationExtra = (newCols, newAddrs) => {
-    const newCfg = { ...userCfg, stationExtraCols: newCols, stationExtraValues: newAddrs };
+  const handleSaveStationExtra = (newCols, newAddrs, newOrder) => {
+    const newCfg = { ...userCfg, stationExtraCols: newCols, stationExtraValues: newAddrs, stationColOrder: newOrder };
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
@@ -2177,6 +2178,7 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               loadNumberValues={loadNumberValues}
               extraCols={stationExtraCols}
               extraLiveValues={stationExtraLiveValues}
+              columnOrder={stationColumnOrder}
               connected={grpcConnected}
               onBack={() => setView(lastSceneView)}
             />
@@ -2188,6 +2190,7 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               stationLoadNumbers={stationLoadNumbers}
               extraCols={stationExtraCols}
               extraAddrs={stationExtraAddrs}
+              columnOrder={stationColumnOrder}
               onSave={handleSaveStationCols}
               onSaveExtra={handleSaveStationExtra}
               onBack={() => setView('config')}

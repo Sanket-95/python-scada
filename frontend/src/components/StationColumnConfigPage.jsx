@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { TAG_DATA_TYPES } from '../config/tagConfig';
+import { TAG_DATA_TYPES, orderStationColumns } from '../config/tagConfig';
 
 // ── Default column definitions ─────────────────────────────────────────────
 // Empty — StationInfoPage.jsx falls back to this only when stationColCfg has
@@ -27,10 +27,12 @@ const T = {
 // address and a start-address box that auto-fills every row incrementally on
 // blur (same scheme as StationNamesConfigPage.jsx's Load Number array
 // fill) — persisted separately via onSaveExtra into
-// stationExtraCols/stationExtraValues. StationInfoPage.jsx reflects these
-// same columns with their live PLC values.
+// stationExtraCols/stationExtraValues. Every column — fixed or custom — can
+// also be moved left/right with its header's ◀/▶ buttons; that sequence
+// (stationColOrder) is saved in the same onSaveExtra call and
+// StationInfoPage.jsx renders its own columns in this exact same order.
 export default function StationColumnConfigPage({
-  tankTags = {}, stationLoadNumbers = {}, extraCols = [], extraAddrs = {},
+  tankTags = {}, stationLoadNumbers = {}, extraCols = [], extraAddrs = {}, columnOrder,
   onSave, onSaveExtra, onBack,
 }) {
   // ── User-added custom columns ───────────────────────────────────────────
@@ -39,6 +41,7 @@ export default function StationColumnConfigPage({
   // and the existing read-only rows below in one shot.
   const [cols, setCols]   = useState(() => extraCols);
   const [addrs, setAddrs] = useState(() => extraAddrs);
+  const [order, setOrder] = useState(() => orderStationColumns(columnOrder, extraCols));
 
   const [addingCol, setAddingCol]   = useState(false);
   const [newColName, setNewColName] = useState('');
@@ -49,7 +52,9 @@ export default function StationColumnConfigPage({
   const addColumn = () => {
     const name = newColName.trim();
     if (!name) return;
-    setCols(prev => [...prev, { id: `x${Date.now()}`, name, dataType: newColType }]);
+    const id = `x${Date.now()}`;
+    setCols(prev => [...prev, { id, name, dataType: newColType }]);
+    setOrder(prev => [...prev, id]);
     setNewColName('');
     setNewColType(TAG_DATA_TYPES[0].id);
     setAddingCol(false);
@@ -57,12 +62,27 @@ export default function StationColumnConfigPage({
 
   const removeColumn = colId => {
     setCols(prev => prev.filter(c => c.id !== colId));
+    setOrder(prev => prev.filter(id => id !== colId));
     setAddrs(prev => {
       const next = {};
       Object.entries(prev).forEach(([stationId, map]) => {
         const { [colId]: _drop, ...rest } = map || {};
         next[stationId] = rest;
       });
+      return next;
+    });
+  };
+
+  // Swaps a column with its left/right neighbor in the display order — the
+  // fixed Station No/Name/Load No Tag columns move the same way as custom
+  // ones, nothing is pinned in place.
+  const moveColumn = (colId, dir) => {
+    setOrder(prev => {
+      const i = prev.indexOf(colId);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[i], next[j]] = [next[j], next[i]];
       return next;
     });
   };
@@ -119,16 +139,145 @@ export default function StationColumnConfigPage({
       }))
   ), [tankTags, stationLoadNumbers]);
 
-  const TH = ({ children, w, align = 'center' }) => (
-    <th style={{
-      width: w, minWidth: w, padding: '8px 8px', fontSize: 9, fontWeight: 700,
-      color: T.tealBr, letterSpacing: 1.1, background: T.cardHdr,
-      borderBottom: `2px solid ${T.teal}`, textAlign: align,
-      borderRight: `1px solid ${T.border}`, whiteSpace: 'nowrap',
-    }}>{children}</th>
-  );
+  const thBase = (w, align = 'center') => ({
+    width: w, minWidth: w, padding: '8px 8px', fontSize: 9, fontWeight: 700,
+    color: T.tealBr, letterSpacing: 1.1, background: T.cardHdr,
+    borderBottom: `2px solid ${T.teal}`, textAlign: align,
+    borderRight: `1px solid ${T.border}`, whiteSpace: 'nowrap',
+  });
 
   const TD = { borderBottom: `1px solid ${T.border}33`, borderRight: `1px solid ${T.border}33` };
+
+  // ◀/▶ buttons every column header gets — fixed columns move the same way
+  // as custom ones, nothing is pinned in place.
+  const MoveButtons = ({ colId }) => {
+    const idx = order.indexOf(colId);
+    const btn = disabled => ({
+      border: 'none', background: 'transparent', cursor: disabled ? 'default' : 'pointer',
+      color: disabled ? `${T.textDim}66` : T.tealBr, fontSize: 11, fontWeight: 900, padding: '0 2px', lineHeight: 1,
+    });
+    return (
+      <span style={{ display: 'inline-flex', gap: 1 }}>
+        <button onClick={() => moveColumn(colId, -1)} disabled={idx <= 0} title="Move left" style={btn(idx <= 0)}>◀</button>
+        <button onClick={() => moveColumn(colId, 1)} disabled={idx < 0 || idx >= order.length - 1} title="Move right" style={btn(idx < 0 || idx >= order.length - 1)}>▶</button>
+      </span>
+    );
+  };
+
+  const renderHeaderCell = colId => {
+    if (colId === 'stNo') {
+      return (
+        <th key={colId} style={thBase(70)}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <span>STATION NO</span><MoveButtons colId={colId} />
+          </div>
+        </th>
+      );
+    }
+    if (colId === 'stName') {
+      return (
+        <th key={colId} style={thBase(180, 'left')}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+            <span>STATION NAME</span><MoveButtons colId={colId} />
+          </div>
+        </th>
+      );
+    }
+    if (colId === 'loadNo') {
+      return (
+        <th key={colId} style={thBase(110)}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <span>LOAD NO TAG</span><MoveButtons colId={colId} />
+          </div>
+        </th>
+      );
+    }
+    const col = cols.find(c => c.id === colId);
+    if (!col) return null;
+    return (
+      <th key={colId} style={{
+        width: 150, minWidth: 150, padding: '6px 8px', fontSize: 9, fontWeight: 700,
+        color: T.tealBr, letterSpacing: 1.1, background: T.cardHdr,
+        borderBottom: `2px solid ${T.teal}`, textAlign: 'center',
+        borderRight: `1px solid ${T.border}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 }}>
+          <MoveButtons colId={colId} />
+          <span style={{ whiteSpace: 'nowrap' }}>{col.name.toUpperCase()}</span>
+          <button onClick={() => removeColumn(col.id)} title="Remove column" style={{
+            border: 'none', background: 'transparent', color: T.red,
+            fontWeight: 900, cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1,
+          }}>×</button>
+        </div>
+        <div style={{ fontSize: 8, fontWeight: 500, color: T.textDim, letterSpacing: 0.5, marginBottom: 4 }}>
+          {TAG_DATA_TYPES.find(t => t.id === col.dataType)?.label || col.dataType}
+        </div>
+        <input
+          value={colStarts[col.id] || ''}
+          onChange={e => setColStarts(prev => ({ ...prev, [col.id]: e.target.value }))}
+          onBlur={() => fillColumnFromStart(col.id)}
+          placeholder="Start addr, e.g. D500"
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            background: T.inputBg, color: T.inputText,
+            border: `1.5px solid ${T.border}`, borderRadius: 4,
+            padding: '4px 6px', fontSize: 11, fontFamily: 'monospace', outline: 'none',
+            fontWeight: 400, letterSpacing: 0,
+          }}
+        />
+        {colErrors[col.id] && (
+          <div style={{ fontSize: 8, color: T.red, fontWeight: 600, marginTop: 2, whiteSpace: 'normal' }}>
+            {colErrors[col.id]}
+          </div>
+        )}
+      </th>
+    );
+  };
+
+  const renderBodyCell = (colId, row, stationId) => {
+    if (colId === 'stNo') {
+      return (
+        <td key={colId} style={{ ...TD, padding: '6px 10px', fontSize: 12, color: T.textLt, textAlign: 'center', fontWeight: 700 }}>
+          {row.stationNo}
+        </td>
+      );
+    }
+    if (colId === 'stName') {
+      return (
+        <td key={colId} style={{ ...TD, padding: '6px 10px', fontSize: 12, color: T.textLt }}>
+          {row.label}
+        </td>
+      );
+    }
+    if (colId === 'loadNo') {
+      const hasTag = !!row.loadNoTag;
+      return (
+        <td key={colId} style={{
+          ...TD, padding: '6px 10px', fontSize: 12, textAlign: 'center', fontFamily: 'monospace',
+          color: hasTag ? T.textWh : T.textDim, fontWeight: hasTag ? 700 : 400,
+        }}>
+          {hasTag ? row.loadNoTag : 'Not configured'}
+        </td>
+      );
+    }
+    return (
+      <td key={colId} style={{ ...TD, padding: '5px 8px', textAlign: 'center' }}>
+        <input
+          value={addrs[stationId]?.[colId] || ''}
+          onChange={e => setCell(stationId, colId, e.target.value)}
+          placeholder="e.g. D500"
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            background: T.inputBg, color: T.inputText,
+            border: `1.5px solid ${T.border}`, borderRadius: 4,
+            padding: '5px 9px', fontSize: 12, fontFamily: 'monospace', outline: 'none',
+          }}
+          onFocus={e => e.target.style.borderColor = T.teal}
+          onBlur={e  => e.target.style.borderColor = T.border}
+        />
+      </td>
+    );
+  };
 
   return (
     <div style={{
@@ -221,84 +370,16 @@ export default function StationColumnConfigPage({
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={{ position: 'sticky', top: 0, zIndex: 5 }}>
             <tr>
-              <TH w={70}>STATION NO</TH>
-              <TH w={180} align="left">STATION NAME</TH>
-              <TH w={110}>LOAD NO TAG</TH>
-              {cols.map(col => (
-                <th key={col.id} style={{
-                  width: 150, minWidth: 150, padding: '6px 8px', fontSize: 9, fontWeight: 700,
-                  color: T.tealBr, letterSpacing: 1.1, background: T.cardHdr,
-                  borderBottom: `2px solid ${T.teal}`, textAlign: 'center',
-                  borderRight: `1px solid ${T.border}`,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 }}>
-                    <span style={{ whiteSpace: 'nowrap' }}>{col.name.toUpperCase()}</span>
-                    <button onClick={() => removeColumn(col.id)} title="Remove column" style={{
-                      border: 'none', background: 'transparent', color: T.red,
-                      fontWeight: 900, cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1,
-                    }}>×</button>
-                  </div>
-                  <div style={{ fontSize: 8, fontWeight: 500, color: T.textDim, letterSpacing: 0.5, marginBottom: 4 }}>
-                    {TAG_DATA_TYPES.find(t => t.id === col.dataType)?.label || col.dataType}
-                  </div>
-                  <input
-                    value={colStarts[col.id] || ''}
-                    onChange={e => setColStarts(prev => ({ ...prev, [col.id]: e.target.value }))}
-                    onBlur={() => fillColumnFromStart(col.id)}
-                    placeholder="Start addr, e.g. D500"
-                    style={{
-                      width: '100%', boxSizing: 'border-box',
-                      background: T.inputBg, color: T.inputText,
-                      border: `1.5px solid ${T.border}`, borderRadius: 4,
-                      padding: '4px 6px', fontSize: 11, fontFamily: 'monospace', outline: 'none',
-                      fontWeight: 400, letterSpacing: 0,
-                    }}
-                  />
-                  {colErrors[col.id] && (
-                    <div style={{ fontSize: 8, color: T.red, fontWeight: 600, marginTop: 2, whiteSpace: 'normal' }}>
-                      {colErrors[col.id]}
-                    </div>
-                  )}
-                </th>
-              ))}
+              {order.map(renderHeaderCell)}
             </tr>
           </thead>
           <tbody>
             {rows.map((row, i) => {
               const base = i % 2 === 0 ? T.cardBg : T.panelBg;
-              const hasTag = !!row.loadNoTag;
               const stationId = String(row.stationNo);
               return (
                 <tr key={row.id} style={{ background: base }}>
-                  <td style={{ ...TD, padding: '6px 10px', fontSize: 12, color: T.textLt, textAlign: 'center', fontWeight: 700 }}>
-                    {row.stationNo}
-                  </td>
-                  <td style={{ ...TD, padding: '6px 10px', fontSize: 12, color: T.textLt }}>
-                    {row.label}
-                  </td>
-                  <td style={{
-                    ...TD, padding: '6px 10px', fontSize: 12, textAlign: 'center', fontFamily: 'monospace',
-                    color: hasTag ? T.textWh : T.textDim, fontWeight: hasTag ? 700 : 400,
-                  }}>
-                    {hasTag ? row.loadNoTag : 'Not configured'}
-                  </td>
-                  {cols.map(col => (
-                    <td key={col.id} style={{ ...TD, padding: '5px 8px', textAlign: 'center' }}>
-                      <input
-                        value={addrs[stationId]?.[col.id] || ''}
-                        onChange={e => setCell(stationId, col.id, e.target.value)}
-                        placeholder="e.g. D500"
-                        style={{
-                          width: '100%', boxSizing: 'border-box',
-                          background: T.inputBg, color: T.inputText,
-                          border: `1.5px solid ${T.border}`, borderRadius: 4,
-                          padding: '5px 9px', fontSize: 12, fontFamily: 'monospace', outline: 'none',
-                        }}
-                        onFocus={e => e.target.style.borderColor = T.teal}
-                        onBlur={e  => e.target.style.borderColor = T.border}
-                      />
-                    </td>
-                  ))}
+                  {order.map(colId => renderBodyCell(colId, row, stationId))}
                 </tr>
               );
             })}
@@ -306,7 +387,7 @@ export default function StationColumnConfigPage({
             {/* Empty state */}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={3 + cols.length} style={{
+                <td colSpan={order.length} style={{
                   padding: '40px', textAlign: 'center',
                   color: T.textDim, fontSize: 13, fontStyle: 'italic',
                 }}>
@@ -331,7 +412,7 @@ export default function StationColumnConfigPage({
           color: T.textLt, cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',
         }}>← Back to Config</button>
 
-        <button onClick={() => { onSave(rows); onSaveExtra?.(cols, addrs); }} style={{
+        <button onClick={() => { onSave(rows); onSaveExtra?.(cols, addrs, order); }} style={{
           padding: '10px 32px', fontSize: 13, fontWeight: 700,
           background: T.teal, border: 'none', color: '#FFFFFF',
           cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',

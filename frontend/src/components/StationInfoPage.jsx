@@ -1,18 +1,17 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { orderStationColumns } from '../config/tagConfig';
 
 // This page shows exactly the columns configured on the Column Config page
-// (StationColumnConfigPage.jsx, "Sourced from Mimic Page Config") — its
-// fixed Station No / Station Name / Load No Tag columns, below shown with
-// their live value instead of the configured address, plus whatever custom
-// columns were added there with "+ Add Column" (see activeCols below). No
-// other columns exist on this page — Wagon/Operation/Duration/Client Name/
-// Part Name/Temp/Current/pH were all removed since none of them are part of
-// the Column Config page's column set.
-const INFO_COLS = [
-  { id: 'stNo',   label: 'Station No' },
-  { id: 'stName', label: 'Station Name' },
-  { id: 'loadNo', label: 'Load No' },
-];
+// (StationColumnConfigPage.jsx, "Sourced from Mimic Page Config"), in that
+// same order — its fixed Station No / Station Name / Load No Tag columns,
+// below shown with their live value instead of the configured address, plus
+// whatever custom columns were added there with "+ Add Column" (see
+// activeCols below, built with the shared orderStationColumns() so both
+// pages can never disagree on sequence). No other columns exist on this
+// page — Wagon/Operation/Duration/Client Name/Part Name/Temp/Current/pH
+// were all removed since none of them are part of the Column Config page's
+// column set.
+const COL_LABELS = { stNo: 'Station No', stName: 'Station Name', loadNo: 'Load No' };
 
 const T = {
   bg:      '#F0F2F6', panelBg: '#FFFFFF', headerBg: '#E8EBF4',
@@ -49,17 +48,20 @@ function saveTablePrefs(prefs) {
 
 export default function StationInfoPage({
   wagons = [], stations = [], colConfig, stationNames = [], tankTags = {},
-  loadNumberValues = {}, extraCols = [], extraLiveValues = {},
+  loadNumberValues = {}, extraCols = [], extraLiveValues = {}, columnOrder,
   connected = false, onBack,
 }) {
-  // Fixed columns plus whatever custom columns were added on the Column
-  // Config page (StationColumnConfigPage.jsx's "+ Add Column") — each
-  // reflects that same column's live PLC value below (see the cell()
-  // default case).
-  const activeCols = useMemo(
-    () => [...INFO_COLS, ...extraCols.map(c => ({ id: c.id, label: c.name }))],
-    [extraCols]
-  );
+  // Same column set AND sequence as the Column Config page (columnOrder is
+  // its saved stationColOrder) — custom columns reflect that same column's
+  // live PLC value below (see the cell() default case).
+  const activeCols = useMemo(() => {
+    const order = orderStationColumns(columnOrder, extraCols);
+    return order.map(id => {
+      if (COL_LABELS[id]) return { id, label: COL_LABELS[id] };
+      const c = extraCols.find(c => c.id === id);
+      return c ? { id, label: c.name } : null;
+    }).filter(Boolean);
+  }, [columnOrder, extraCols]);
   const [page, setPage]       = useState(0);
   const [tablePrefs, setTablePrefs] = useState(loadTablePrefs);
   const { paginationOn, pageSize } = tablePrefs;

@@ -7,17 +7,17 @@ export const C = {
   svg: { w: 2000, h: 760 },
 
   palette: {
-    bg:          '#F0F2F6',
+    bg:          '#EDF0F3',
     grid:        'rgba(40,60,100,0.06)',
     panel:       '#FFFFFF',
-    panelBorder: '#C4C8D4',
-    text:        '#3A4F6A',
-    textBright:  '#1A2035',
-    textDim:     '#8090A8',
-    accent:      '#1565C0',
-    ok:          '#2E7D32',
-    warn:        '#E65100',
-    danger:      '#C62828',
+    panelBorder: '#D2D8DE',
+    text:        '#45505C',
+    textBright:  '#1C232B',
+    textDim:     '#7A8591',
+    accent:      '#0E7C86',
+    ok:          '#2F855A',
+    warn:        '#C2630A',
+    danger:      '#C53030',
   },
 
   // Fixed chemical colour — never changes with fill level
@@ -87,20 +87,20 @@ export const C = {
   station: { w: 26 },
 
   tempRanges: [
-    { max: 350, color: '#0097A7', label: 'COLD' },
-    { max: 510, color: '#2E7D32', label: 'NORM' },
-    { max: 620, color: '#E65100', label: 'WARN' },
-    { max: Infinity, color: '#C62828', label: 'HOT!' },
+    { max: 25, color: '#0097A7', label: 'COLD' },   // °C
+    { max: 70, color: '#2F855A', label: 'NORM' },
+    { max: 85, color: '#C2630A', label: 'WARN' },
+    { max: Infinity, color: '#C53030', label: 'HOT!' },
   ],
 
   statusColors: {
     idle:                  '#90A0B0',
-    moving_to_source:      '#1565C0',
-    arm_extending_load:    '#2E7D32',
-    arm_retracting_loaded: '#2E7D32',
-    moving_to_dest:        '#E65100',
-    arm_extending_unload:  '#C62828',
-    arm_retracting_empty:  '#C62828',
+    moving_to_source:      '#0E7C86',
+    arm_extending_load:    '#2F855A',
+    arm_retracting_loaded: '#2F855A',
+    moving_to_dest:        '#C2630A',
+    arm_extending_unload:  '#C53030',
+    arm_retracting_empty:  '#C53030',
     returning:             '#00838F',
   },
 

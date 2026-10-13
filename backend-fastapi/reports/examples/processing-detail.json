@@ -1,0 +1,507 @@
+{
+  "report_id": "RPT-PROC-20250819-CB59EB",
+  "report": "processing",
+  "title": "Pasteurization and Processing Report",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "batch_id": "PB-250819-02",
+    "state": "REVIEW REQUIRED"
+  },
+  "rows": [
+    {
+      "batch_id": "PB-250819-02",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "product_code": "TM",
+      "product_name": "Toned Milk",
+      "milk_type": "Mixed",
+      "source_tanks": [
+        "ST-COW-01",
+        "ST-BUF-01"
+      ],
+      "source_lots": [
+        {
+          "lot": "RB-250818-09",
+          "litres": 4896.1,
+          "tank": "ST-COW-01"
+        },
+        {
+          "lot": "RB-250818-10",
+          "litres": 2205.3,
+          "tank": "ST-COW-01"
+        },
+        {
+          "lot": "RB-250818-08",
+          "litres": 4734.3,
+          "tank": "ST-BUF-01"
+        }
+      ],
+      "scheduled_start": "2025-08-19T07:37:00",
+      "start": "2025-08-19T07:37:00",
+      "end": "2025-08-19T08:48:00",
+      "incoming_l": 11835.7,
+      "processed_l": 11779.2,
+      "documented_loss_l": 24.8,
+      "inlet_temp_c": 4.9,
+      "outlet_temp_min_c": 70.8,
+      "outlet_temp_avg_c": 72.54,
+      "hold_time_s": 16.4,
+      "homogenizer_bar": 196.0,
+      "cooling_outlet_c": 3.8,
+      "line_id": "LINE-01",
+      "equipment_status": "Fault during batch",
+      "deviations": [
+        "Outlet dipped below 72.0 °C for 2 min — FDV diverted to balance tank"
+      ],
+      "alarm_ids": [
+        "ALM-250819-0008"
+      ],
+      "state": "REVIEW REQUIRED",
+      "disposition": "On hold — QA review",
+      "temp_profile": [
+        {
+          "t": "2025-08-19T07:37:00",
+          "outlet_c": 72.64,
+          "fdv": "FORWARD"
+        },
+        {
+          "t": "2025-08-19T07:38:00",
+          "outlet_c": 72.64,
+          "fdv": "FORWARD"
+        },
+        {
+          "t": "2025-08-19T07:39:00",
+          "outlet_c": 72.48,
+          "fdv": "FORWARD"
+        },
+        {
+          "t": "2025-08-19T07:40:00",
+          "outlet_c": 72.72,
+          "fdv": "FORWARD"
+        },
+        {
+          "t": "2025-08-19T07:41:00",
+          "outlet_c": 72.59,
+          "fdv": "FORWARD"
+        },
+        {
+          "…": "truncated"
+        }
+      ],
+      "events": [
+        {
+          "time": "2025-08-19T07:37:00",
+          "text": "Batch started — feed from ST-COW-01, ST-BUF-01"
+        },
+        {
+          "time": "2025-08-19T07:57:00",
+          "text": "Outlet below target — FDV diverted"
+        },
+        {
+          "time": "2025-08-19T08:48:00",
+          "text": "Batch complete — 11,779 L to ST-PM-01"
+        }
+      ],
+      "is_mock": true
+    }
+  ],
+  "pagination": null,
+  "columns": [],
+  "charts": {
+    "profile": [
+      {
+        "t": "2025-08-19T07:37:00",
+        "outlet_c": 72.64,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:38:00",
+        "outlet_c": 72.64,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:39:00",
+        "outlet_c": 72.48,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:40:00",
+        "outlet_c": 72.72,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:41:00",
+        "outlet_c": 72.59,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:42:00",
+        "outlet_c": 72.72,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:43:00",
+        "outlet_c": 72.77,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:44:00",
+        "outlet_c": 72.3,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:45:00",
+        "outlet_c": 72.65,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:46:00",
+        "outlet_c": 72.58,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:47:00",
+        "outlet_c": 72.57,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:48:00",
+        "outlet_c": 72.56,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:49:00",
+        "outlet_c": 72.57,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:50:00",
+        "outlet_c": 72.69,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:51:00",
+        "outlet_c": 72.57,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:52:00",
+        "outlet_c": 72.53,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:53:00",
+        "outlet_c": 72.69,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:54:00",
+        "outlet_c": 72.51,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:55:00",
+        "outlet_c": 72.47,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:56:00",
+        "outlet_c": 72.65,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T07:57:00",
+        "outlet_c": 71.52,
+        "fdv": "DIVERT"
+      },
+      {
+        "t": "2025-08-19T07:58:00",
+        "outlet_c": 70.8,
+        "fdv": "DIVERT"
+      },
+      {
+        "t": "2025-08-19T07:59:00",
+        "outlet_c": 72.56,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:00:00",
+        "outlet_c": 72.44,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:01:00",
+        "outlet_c": 72.64,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:02:00",
+        "outlet_c": 72.31,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:03:00",
+        "outlet_c": 72.67,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:04:00",
+        "outlet_c": 72.65,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:05:00",
+        "outlet_c": 72.58,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:06:00",
+        "outlet_c": 72.37,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:07:00",
+        "outlet_c": 72.6,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:08:00",
+        "outlet_c": 72.78,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:09:00",
+        "outlet_c": 72.69,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:10:00",
+        "outlet_c": 72.7,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:11:00",
+        "outlet_c": 72.37,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:12:00",
+        "outlet_c": 72.49,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:13:00",
+        "outlet_c": 72.54,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:14:00",
+        "outlet_c": 72.48,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:15:00",
+        "outlet_c": 72.83,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:16:00",
+        "outlet_c": 72.54,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:17:00",
+        "outlet_c": 72.54,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:18:00",
+        "outlet_c": 72.37,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:19:00",
+        "outlet_c": 72.68,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:20:00",
+        "outlet_c": 72.76,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:21:00",
+        "outlet_c": 72.66,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:22:00",
+        "outlet_c": 72.63,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:23:00",
+        "outlet_c": 72.32,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:24:00",
+        "outlet_c": 72.61,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:25:00",
+        "outlet_c": 72.54,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:26:00",
+        "outlet_c": 72.71,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:27:00",
+        "outlet_c": 72.53,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:28:00",
+        "outlet_c": 72.58,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:29:00",
+        "outlet_c": 72.55,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:30:00",
+        "outlet_c": 72.67,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:31:00",
+        "outlet_c": 72.37,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:32:00",
+        "outlet_c": 72.51,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:33:00",
+        "outlet_c": 72.62,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:34:00",
+        "outlet_c": 72.44,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:35:00",
+        "outlet_c": 72.68,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:36:00",
+        "outlet_c": 72.59,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:37:00",
+        "outlet_c": 72.43,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:38:00",
+        "outlet_c": 72.37,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:39:00",
+        "outlet_c": 72.62,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:40:00",
+        "outlet_c": 72.7,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:41:00",
+        "outlet_c": 72.67,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:42:00",
+        "outlet_c": 72.47,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:43:00",
+        "outlet_c": 72.63,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:44:00",
+        "outlet_c": 72.54,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:45:00",
+        "outlet_c": 72.32,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:46:00",
+        "outlet_c": 72.78,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:47:00",
+        "outlet_c": 72.56,
+        "fdv": "FORWARD"
+      },
+      {
+        "t": "2025-08-19T08:48:00",
+        "outlet_c": 72.62,
+        "fdv": "FORWARD"
+      }
+    ],
+    "target": 72.0,
+    "events": [
+      {
+        "time": "2025-08-19T07:37:00",
+        "text": "Batch started — feed from ST-COW-01, ST-BUF-01"
+      },
+      {
+        "time": "2025-08-19T07:57:00",
+        "text": "Outlet below target — FDV diverted"
+      },
+      {
+        "time": "2025-08-19T08:48:00",
+        "text": "Batch complete — 11,779 L to ST-PM-01"
+      }
+    ]
+  },
+  "notes": []
+}

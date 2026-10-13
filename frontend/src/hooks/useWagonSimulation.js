@@ -13,6 +13,38 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // real hardware.
 const TAG_MOVE_SPEED_MUL = 2.5 * 1.75 * 1.75 * 2; // = 15.3125
 
+// Hoist dip played when a tag-controlled wagon picks up or sets down a load
+// (lift tag latch): the hook goes down into the tank, the load changes hands
+// at the bottom, and it comes back up. Seconds per half; the mock PLC
+// (sim/mockPlant.js HOIST_BOTTOM_AT) swaps the tank's load at the same moment.
+const DIP_DOWN_S = 2.0;
+const DIP_UP_S   = 2.0;
+const easeInOut  = t => t * t * (3 - 2 * t);
+
+// Advances a running dip. Returns true while it's still playing.
+function stepDip(wagon, dt) {
+  const dip = wagon.dip;
+  dip.t += dt;
+  if (dip.t < DIP_DOWN_S) {                        // going down
+    wagon.armExtension = easeInOut(dip.t / DIP_DOWN_S);
+    wagon.loadPercent  = dip.pickup ? 0 : 100;     // empty hook down / load going in
+    wagon.status = dip.pickup ? 'arm_extending_load' : 'arm_extending_unload';
+    return true;
+  }
+  if (dip.t < DIP_DOWN_S + DIP_UP_S) {             // coming up
+    wagon.armExtension = 1 - easeInOut((dip.t - DIP_DOWN_S) / DIP_UP_S);
+    wagon.loadPercent  = dip.pickup ? 100 : 0;     // load coming out / empty hook up
+    wagon.status = dip.pickup ? 'arm_retracting_loaded' : 'arm_retracting_empty';
+    return true;
+  }
+  wagon.armExtension = 0;
+  wagon.loadPercent  = dip.pickup ? 100 : 0;
+  wagon.status = 'idle';
+  wagon.timer = 0;
+  wagon.dip = null;
+  return false;
+}
+
 // ── Trip planner: pick source (has load) and destination (any free tank) ─────
 // hasLoad here is purely READ — it comes from the live PLC poll, not
 // anything this file writes. With nothing connected/configured yet, no
@@ -148,6 +180,10 @@ function tick(state, dt, cfg, pendingTargets) {
   const MIN_GAP = cfg.wagon.w + 10; // minimum spacing between wagons on the same track
 
   wagons.forEach(wagon => {
+    // A hoist dip in progress owns the wagon until it finishes — no travel
+    // or redirect meanwhile (a new location target is picked up right after).
+    if (wagon.dip && stepDip(wagon, dt)) return;
+
     const trackSts    = stations.filter(s => s.trackId === wagon.trackId);
     const trackWagons = wagons.filter(w => w.id !== wagon.id && w.trackId === wagon.trackId);
 
@@ -321,6 +357,7 @@ function tick(state, dt, cfg, pendingTargets) {
   // Temperature drift only — hasLoad is driven entirely by live PLC data now,
   // nothing here touches it
   stations.forEach(st => {
+    if (st.liveTemp) return;
     const target = st.baseTemp + (st.isActive ? 8 : 0);
     st.temperature += (target - st.temperature) * cfg.sim.tempDrift * dt;
     if (Math.random() < 0.008) st.temperature += rnd(-0.8, 0.8);
@@ -370,6 +407,13 @@ export function useWagonSimulation(cfgOverride) {
     wagon.committedTagTarget = resolved;
   }, [cfg]);
 
+  // Live temperature (°C) for a station — once set, the station's own
+  // drift model stops touching it, so the live value is shown as-is.
+  const setStationTemperature = useCallback((stationId, temperature) => {
+    const st = stateRef.current.stations.find(s => s.id === Number(stationId));
+    if (st) { st.temperature = temperature; st.liveTemp = true; }
+  }, []);
+
   // Directly set a station's hasLoad (for manual tag testing)
   const setStationHasLoad = useCallback((stationId, hasLoad) => {
     const st = stateRef.current.stations.find(s => s.id === Number(stationId));
@@ -383,10 +427,20 @@ export function useWagonSimulation(cfgOverride) {
   // the right cargo to appear/disappear). Also marks the wagon
   // tag-controlled so the demo arm-extend/retract animation — which
   // otherwise owns loadPercent — never fights over it.
-  const setWagonLoadFlag = useCallback((wagonId, hasLoad) => {
+  //
+  // animate = true plays the hoist dip (down into the tank, hand over the
+  // load, back up) instead of switching instantly — used for a real change
+  // of state, not for the first value seen on page load. A wagon that's
+  // mid-travel just switches instantly.
+  const setWagonLoadFlag = useCallback((wagonId, hasLoad, animate = false) => {
     const wagon = stateRef.current.wagons.find(w => w.id === Number(wagonId));
     if (!wagon) return;
     wagon.tagControlled = true;
+    if (animate && wagon.status !== 'moving_to_position') {
+      wagon.dip = { t: 0, pickup: !!hasLoad };
+      return;
+    }
+    wagon.dip = null;
     wagon.loadPercent = hasLoad ? 100 : 0;
     wagon.armExtension = 0;
   }, []);
@@ -434,5 +488,5 @@ export function useWagonSimulation(cfgOverride) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return { ...display, setWagonTarget, snapWagonToTank, setWagonLoadFlag, setWagonMode, setStationHasLoad };
+  return { ...display, setWagonTarget, snapWagonToTank, setWagonLoadFlag, setWagonMode, setStationHasLoad, setStationTemperature };
 }

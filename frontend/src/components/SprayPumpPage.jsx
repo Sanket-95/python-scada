@@ -1,72 +1,78 @@
 import { useState } from 'react';
-import RotarySwitch from './RotarySwitch';
-import StatusLed from './StatusLed';
-import {
-  SPRAY_PUMPS, ledState, loadSprayPumpSwitches, saveSprayPumpSwitches,
-} from '../config/sprayPumps';
+import { SPRAY_PUMPS, ledState, loadSprayPumpSwitches, saveSprayPumpSwitches } from '../config/sprayPumps';
+import { THEME, FONT_COND } from '../theme';
+import { Card, Grid, Segmented, Toggle, SignalPill, Badge } from '../ui/kit';
 
-const T = {
-  panelBg: '#FFFFFF', cardBg: '#F4F5FA', cardHdr: '#E8EBF4', border: '#C4C8D4',
-  accent: '#1565C0', textWh: '#1A2035', textDim: '#8090A8',
-};
+// Spray Pumps — one equipment card per pump: running state up top, the
+// Man/Auto selector and manual run switch (saved locally the moment they
+// change), and the live health signals underneath.
 
-const COLS = '210px 118px 118px repeat(3, minmax(96px, 1fr))';
-
-const HEADERS = ['PUMP', 'MAN / AUTO', 'MANUAL OFF / ON', 'HEALTHY', 'SCRUBBER HEALTHY', 'OUTPUT STATUS'];
-
-// grpcTags / grpcConnected come from the app shell through SettingsPage's
-// pageContext. The switches are local for now (persisted so they survive a
-// reload); the LEDs only ever show live tag values.
-export default function SprayPumpPage({ grpcTags = {}, grpcConnected = false }) {
+export default function SprayPumpPage({ grpcTags = {}, grpcConnected = false, stationNames = [] }) {
   const [switches, setSwitches] = useState(loadSprayPumpSwitches);
 
-  const flip = (pumpId, field, a, b) => setSwitches(prev => {
-    const next = { ...prev, [pumpId]: { ...prev[pumpId], [field]: prev[pumpId][field] === a ? b : a } };
+  const set = (pumpId, field, value) => setSwitches(prev => {
+    const next = { ...prev, [pumpId]: { ...prev[pumpId], [field]: value } };
     saveSprayPumpSwitches(next);
     return next;
   });
 
   return (
-    <div style={{ maxWidth: 940, margin: '0 auto', overflowX: 'auto' }}>
-      <div style={{ minWidth: 760, background: T.panelBg, border: `1px solid ${T.border}`, borderRadius: 10, overflow: 'hidden' }}>
-        <div style={{
-          display: 'grid', gridTemplateColumns: COLS, gap: 12, padding: '11px 16px',
-          background: T.cardHdr, borderBottom: `2px solid ${T.accent}`,
-          fontSize: 10.5, fontWeight: 800, letterSpacing: 1, color: T.accent,
-        }}>
-          {HEADERS.map((h, i) => <div key={h} style={{ textAlign: i === 0 ? 'left' : 'center' }}>{h}</div>)}
-        </div>
-
-        {SPRAY_PUMPS.map((pump, i) => {
-          const sw = switches[pump.id];
-          const title = `${pump.label} (Stn ${pump.station})`;
-          const led = tag => ledState(grpcTags, grpcConnected, tag);
-          return (
-            <div key={pump.id} style={{
-              display: 'grid', gridTemplateColumns: COLS, gap: 12, alignItems: 'center',
-              padding: '14px 16px', background: i % 2 ? T.cardBg : T.panelBg,
-              borderBottom: i < SPRAY_PUMPS.length - 1 ? `1px solid ${T.border}55` : 'none',
+    <Grid min={340}>
+      {SPRAY_PUMPS.map(pump => {
+        const sw = switches[pump.id];
+        const led = tag => ledState(grpcTags, grpcConnected, tag);
+        const running = led(pump.tags.outputStatus) === 'on';
+        const healthy = led(pump.tags.healthy) === 'on';
+        const stationName = stationNames[pump.station - 1];
+        return (
+          <Card key={pump.id} pad={0}>
+            <div style={{
+              padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16,
+              background: running ? 'linear-gradient(120deg, #E3F4EA, #FFFFFF)' : '#FAFBFC',
+              borderBottom: '1px solid #EEF1F3',
             }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: T.textWh }}>{title}</div>
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <RotarySwitch
-                  label={`${title} Man/Auto`} leftLabel="MAN" rightLabel="AUTO"
-                  isRight={sw.mode === 'auto'} onToggle={() => flip(pump.id, 'mode', 'man', 'auto')}
-                />
+              <div style={{
+                width: 56, height: 56, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 26, color: '#FFFFFF', background: running ? THEME.ok : '#9AA4AD',
+                animation: running ? 'spin 2.4s linear infinite' : 'none',
+              }}>✣</div>
+              <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: FONT_COND, fontSize: 24, fontWeight: 700, color: THEME.text }}>{pump.label}</div>
+                <div style={{ fontSize: 13, color: THEME.textDim }}>Tank {pump.station}{stationName ? ` · ${stationName}` : ''}</div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <RotarySwitch
-                  label={`${title} Manual Off/On`} leftLabel="OFF" rightLabel="ON"
-                  isRight={sw.manual === 'on'} onToggle={() => flip(pump.id, 'manual', 'off', 'on')}
-                />
-              </div>
-              <StatusLed label={`${title} Healthy`} state={led(pump.tags.healthy)} />
-              <StatusLed label={`${title} Scrubber Healthy`} state={led(pump.tags.scrubberHealthy)} />
-              <StatusLed label={`${title} Output Status`} state={led(pump.tags.outputStatus)} />
+              <Badge toneName={running ? 'ok' : 'neutral'} dot>{running ? 'Running' : 'Stopped'}</Badge>
             </div>
-          );
-        })}
-      </div>
-    </div>
+
+            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: THEME.textMid }}>Control mode</span>
+                <Segmented size="sm" value={sw.mode} onChange={v => set(pump.id, 'mode', v)} options={[
+                  { value: 'man', label: 'Manual' }, { value: 'auto', label: 'Auto', color: THEME.accent },
+                ]} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: THEME.textMid }}>Manual run</span>
+                <Toggle checked={sw.manual === 'on'} disabled={sw.mode === 'auto'}
+                  onChange={on => set(pump.id, 'manual', on ? 'on' : 'off')}
+                  label={sw.mode === 'auto' ? 'PLC controlled' : sw.manual === 'on' ? 'On' : 'Off'} />
+              </div>
+              <div style={{ height: 1, background: '#EEF1F3' }} />
+              {[
+                ['Pump healthy', pump.tags.healthy],
+                ['Scrubber healthy', pump.tags.scrubberHealthy],
+                ['Output feedback', pump.tags.outputStatus],
+              ].map(([label, tag]) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 13.5, color: THEME.text, fontWeight: 600 }}>{label}</span>
+                  <SignalPill state={led(tag)} onText="OK" offText={label === 'Output feedback' ? 'OFF' : 'FAULT'} />
+                </div>
+              ))}
+              {!healthy && grpcConnected && <Badge toneName="danger" style={{ alignSelf: 'flex-start' }}>Check pump — health signal lost</Badge>}
+            </div>
+          </Card>
+        );
+      })}
+    </Grid>
   );
 }

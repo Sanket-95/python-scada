@@ -1,93 +1,78 @@
 import { useMemo } from 'react';
-import StatusLed from './StatusLed';
 import { indexTags, ledStateOf } from '../config/ledState';
-import { PREREQUISITE_SECTIONS } from '../config/prerequisites';
+import { PREREQUISITE_SECTIONS, checkState } from '../config/prerequisites';
+import { THEME, FONT_COND } from '../theme';
+import { Card, Grid, Badge, Meter, Stat } from '../ui/kit';
 
-const T = {
-  panelBg: '#FFFFFF', cardBg: '#F4F5FA', cardHdr: '#E8EBF4', border: '#C4C8D4',
-  accent: '#1565C0', textWh: '#1A2035',
-};
+// Start Readiness — every interlock that has to be healthy before the line can
+// run in auto, shown as one checklist card per unit (each wagon, each cross
+// trolley, each lidded tank) with a readiness meter. Live tag values only.
 
-const LABEL_COL = 150;
-const CELL_COL = 96;
-
-function PrerequisiteTable({ table, index, connected }) {
-  const cols = `${LABEL_COL}px repeat(${table.columns.length}, ${CELL_COL}px)`;
-  return (
-    <div style={{ border: `1px solid ${T.border}`, borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{
-        display: 'grid', gridTemplateColumns: cols, gap: 8, padding: '10px 14px',
-        background: T.cardHdr, borderBottom: `2px solid ${T.accent}`,
-        fontSize: 10.5, fontWeight: 800, letterSpacing: 1, color: T.accent,
-      }}>
-        <div />
-        {table.columns.map(c => <div key={c.id} style={{ textAlign: 'center' }}>{c.label}</div>)}
-      </div>
-      {table.rows.map((row, i) => (
-        <div key={row.id} style={{
-          display: 'grid', gridTemplateColumns: cols, gap: 8, alignItems: 'center',
-          padding: '9px 14px', background: i % 2 ? T.cardBg : T.panelBg,
-          borderBottom: i < table.rows.length - 1 ? `1px solid ${T.border}55` : 'none',
-        }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: T.textWh }}>{row.label}</div>
-          {table.columns.map(col => (
-            <div key={col.id} style={{ display: 'flex', justifyContent: 'center' }}>
-              <StatusLed
-                shape="rect"
-                label={`${col.label} ${row.label}`}
-                state={ledStateOf(index, connected, table.tagName(row, col))}
-              />
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
+function unitsOf(section) {
+  // One unit per table column; a unit's checks are that table's rows.
+  return section.tables.flatMap(table => table.columns.map(col => ({
+    key: `${table.id}:${col.id}`, label: col.label,
+    checks: table.rows.map(r => ({ key: r.id, label: r.label, tag: table.tagName(r, col), row: r })),
+  })));
 }
 
-// grpcTags / grpcConnected come from the app shell through SettingsPage's
-// pageContext. Every indicator shows live tag values only.
-// Sections that share a `row` number sit side by side on one line.
-function groupIntoRows(sections) {
-  const rows = new Map();
-  for (const section of sections) {
-    if (!rows.has(section.row)) rows.set(section.row, []);
-    rows.get(section.row).push(section);
-  }
-  return [...rows.entries()].sort(([a], [b]) => a - b).map(([, group]) => group);
-}
+const ITEM_ICON = { on: '✓', off: '✕', unknown: '–' };
+const ITEM_TONE = { on: THEME.ok, off: THEME.danger, unknown: THEME.textDim };
 
-const ROWS = groupIntoRows(PREREQUISITE_SECTIONS);
-
-// grpcTags / grpcConnected come from the app shell through SettingsPage's
-// pageContext. Every indicator shows live tag values only.
 export default function PrerequisitesPage({ grpcTags = {}, grpcConnected = false }) {
   const index = useMemo(() => indexTags(grpcTags), [grpcTags]);
 
+  const groups = PREREQUISITE_SECTIONS.map(section => ({
+    id: section.id, title: section.title,
+    units: unitsOf(section).map(u => {
+      const checks = u.checks.map(c => ({ ...c, state: checkState(c.row, ledStateOf(index, grpcConnected, c.tag)) }));
+      return { ...u, checks, ok: checks.filter(c => c.state === 'on').length };
+    }),
+  }));
+  const allUnits = groups.flatMap(g => g.units);
+  const total = allUnits.reduce((a, u) => a + u.checks.length, 0);
+  const ok = allUnits.reduce((a, u) => a + u.ok, 0);
+  const readyUnits = allUnits.filter(u => u.ok === u.checks.length).length;
+
   return (
-    <div style={{ maxWidth: 1180, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {ROWS.map((group, r) => (
-        <div key={r} style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'stretch' }}>
-          {group.map(section => (
-            <div key={section.id} style={{
-              // Sized to its content, not stretched across the page
-              flex: '0 1 auto', minWidth: 0,
-              background: T.panelBg, border: `1px solid ${T.border}`, borderRadius: 10,
-              padding: 20, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center',
-            }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, letterSpacing: 1.5, textAlign: 'center' }}>
-                {section.title}
-              </div>
-              <div style={{
-                flex: 1, display: 'flex', gap: 24, flexWrap: 'wrap',
-                justifyContent: 'center', alignItems: 'center',
-              }}>
-                {section.tables.map(table => (
-                  <PrerequisiteTable key={table.id} table={table} index={index} connected={grpcConnected} />
-                ))}
-              </div>
-            </div>
-          ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <Grid min={220}>
+        <Stat label="Line status" value={ok === total ? 'READY' : 'BLOCKED'} toneName={ok === total ? 'ok' : 'danger'} icon={ok === total ? '✓' : '!'} sub={grpcConnected ? 'all interlocks evaluated live' : 'no live data'} />
+        <Stat label="Interlocks healthy" value={`${ok}/${total}`} toneName="info" icon="⛓" />
+        <Stat label="Units ready" value={`${readyUnits}/${allUnits.length}`} icon="▣" />
+      </Grid>
+
+      {groups.map(g => (
+        <div key={g.id}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: THEME.textMid, margin: '4px 0 10px', textTransform: 'capitalize' }}>{g.title.toLowerCase()}</div>
+          <Grid min={240}>
+            {g.units.map(u => {
+              const ready = u.ok === u.checks.length;
+              return (
+                <Card key={u.key} pad={16}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
+                    <div style={{ fontFamily: FONT_COND, fontSize: 21, fontWeight: 700, color: THEME.text }}>{u.label}</div>
+                    <Badge toneName={ready ? 'ok' : 'danger'} dot>{ready ? 'Ready' : 'Not ready'}</Badge>
+                  </div>
+                  <Meter value={u.ok} max={u.checks.length} color={ready ? THEME.ok : THEME.warn} />
+                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                    {u.checks.map(c => (
+                      <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5 }}>
+                        <span style={{
+                          width: 20, height: 20, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 800, color: '#FFFFFF', background: ITEM_TONE[c.state],
+                        }}>{ITEM_ICON[c.state]}</span>
+                        <span style={{ flex: 1, color: THEME.text, fontWeight: 600 }}>{c.label}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: ITEM_TONE[c.state] }}>
+                          {c.state === 'on' ? 'OK' : c.state === 'off' ? 'FAULT' : 'NO DATA'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              );
+            })}
+          </Grid>
         </div>
       ))}
     </div>

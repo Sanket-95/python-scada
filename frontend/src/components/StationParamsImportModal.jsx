@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { TAG_DATA_TYPES } from '../config/tagConfig';
+import { THEME } from '../theme';
+import { Modal, FilePick, Button, Badge, Callout } from '../ui/kit';
 
 // Bulk-import station parameters from an uploaded Excel file — ONE ROW PER
 // STATION (wide format), with a fixed 3-column group per recognized
@@ -17,11 +19,11 @@ import { TAG_DATA_TYPES } from '../config/tagConfig';
 //   Actual PH Address/Type/Unit, Group (optional)
 
 const T = {
-  pageBg: '#F0F2F6', panelBg: '#FFFFFF', cardBg: '#F4F5FA', cardHdr: '#E8EBF4',
-  border: '#C4C8D4', accent: '#1565C0', ok: '#2E7D32', warn: '#E65100', danger: '#C62828',
-  textWh: '#1A2035', textLt: '#3A4F6A', textDim: '#8090A8',
+  pageBg: '#EDF0F3', panelBg: '#FFFFFF', cardBg: '#F5F7F8', cardHdr: '#E5EAEE',
+  border: '#D2D8DE', accent: '#0E7C86', ok: '#2F855A', warn: '#C2630A', danger: '#C53030',
+  textWh: '#1C232B', textLt: '#45505C', textDim: '#7A8591',
 };
-const FONT = "'Segoe UI', system-ui, monospace";
+const FONT = 'inherit';
 
 // Same fixed set as StationNamesConfigPage.jsx's PARAM_KINDS — kept in sync
 // manually since it's a small closed list, not worth a shared import for.
@@ -164,116 +166,49 @@ export default function StationParamsImportModal({ onApply, onClose }) {
   const preview = step === 'preview' ? build() : null;
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(10,20,34,0.55)', zIndex: 200,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <div style={{
-        background: T.panelBg, borderRadius: 10, width: 700, maxWidth: '92vw',
-        maxHeight: '88vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-        fontFamily: FONT, boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
-      }}>
-        <div style={{
-          background: T.cardHdr, borderBottom: `3px solid ${T.accent}`,
-          padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div>
-            <div style={{ fontSize: 11, color: T.accent, letterSpacing: 2, fontWeight: 700 }}>IMPORT STATION PARAMETERS</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: T.textWh, marginTop: 2 }}>Upload Excel — columns auto-detected</div>
+    <Modal title="Import station parameters" subtitle="One row per station — columns are detected automatically"
+      steps={['Upload', 'Review', 'Import']} step={step === 'preview' ? 'Review' : 'Upload'} width={720}
+      onClose={onClose}
+      footer={step === 'preview' && (
+        <>
+          <Button onClick={() => setStep('upload')}>← Different file</Button>
+          <Button variant="primary" icon="✓" disabled={!preview || preview.appliedCount === 0}
+            onClick={() => { const { paramsByStation, groupByStation } = build(); onApply(paramsByStation, groupByStation); }}>
+            Import {preview ? preview.appliedCount : ''} parameters
+          </Button>
+        </>
+      )}>
+      {step === 'upload' && (
+        <>
+          <Callout title="Sheet layout">
+            Required: <b>Station #</b>. Optional: <b>Group</b>. For each reading a station has, a 3-column group named after
+            it — e.g. <b>Actual Temperature Address</b>, <b>… Type</b>, <b>… Unit</b>. Leave groups blank where unused.
+          </Callout>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{PARAM_KINDS.map(k => <Badge key={k} toneName="info">{k}</Badge>)}</div>
+          {error && <Callout toneName="danger" icon="!">{error}</Callout>}
+          <FilePick onClick={() => fileInputRef.current?.click()} label="Choose Excel file" hint=".xlsx, .xls or .csv" />
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{ display: 'none' }} />
+        </>
+      )}
+      {step === 'preview' && (
+        <>
+          <div style={{ fontSize: 13.5, color: THEME.textMid }}><Badge toneName="ok">{fileName}</Badge> {rows.length} station rows found.</div>
+          <div style={{ borderRadius: 12, border: '1px solid #E1E6EA', overflow: 'hidden' }}>
+            {[['Station #', headers[detected.stationCol]], ...(detected.groupCol != null ? [['Group', headers[detected.groupCol]]] : []),
+              ...Object.entries(detected.kindCols).map(([kind, c]) => [kind, [headers[c.addrCol], c.typeCol != null && headers[c.typeCol], c.unitCol != null && headers[c.unitCol]].filter(Boolean).join(' · ')])]
+              .map(([k, v], i) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '9px 14px', background: i % 2 ? '#FFFFFF' : '#F8FAFB', fontSize: 13.5 }}>
+                  <span style={{ fontWeight: 700, color: THEME.text }}>{k}</span><span style={{ color: THEME.textMid }}>{v}</span>
+                </div>
+              ))}
           </div>
-          <button onClick={onClose} style={{
-            background: 'transparent', border: 'none', fontSize: 18, color: T.textDim, cursor: 'pointer',
-          }}>✕</button>
-        </div>
-
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {step === 'upload' && (
-            <>
-              <div style={{ fontSize: 12.5, color: T.textLt, lineHeight: 1.6 }}>
-                Upload an .xlsx/.xls/.csv file with <strong>one row per station</strong>. For each parameter a
-                station has, fill in its 3-column group — e.g. <strong>Actual Temperature Address</strong>,{' '}
-                <strong>Actual Temperature Type</strong>, <strong>Actual Temperature Unit</strong> — and leave the
-                groups for parameters it doesn't have blank. Mention only the stations that need something; one with
-                none at all just isn't a row.
-              </div>
-              <div style={{ fontSize: 11.5, color: T.textDim, lineHeight: 1.7, background: T.cardBg, borderRadius: 6, padding: '10px 14px' }}>
-                Recognized kinds (one 3-column group each): {PARAM_KINDS.map(k => <strong key={k} style={{ color: T.textWh }}> {k} </strong>)}
-                <br />Required: <strong style={{ color: T.textWh }}>Station #</strong>. Optional: <strong style={{ color: T.textWh }}>Group</strong>.
-              </div>
-              {error && (
-                <div style={{ background: '#FDECEA', border: `1px solid ${T.danger}55`, borderRadius: 6, padding: '8px 12px', fontSize: 12, color: T.danger, lineHeight: 1.6 }}>
-                  {error}
-                </div>
-              )}
-              <button onClick={() => fileInputRef.current?.click()} style={{
-                padding: '14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                background: T.cardBg, border: `2px dashed ${T.border}`, color: T.accent, borderRadius: 8,
-              }}>📤 Choose Excel file…</button>
-              <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{ display: 'none' }} />
-            </>
+          {PARAM_KINDS.filter(k => !detected.kindCols[k]).length > 0 && (
+            <div style={{ fontSize: 12.5, color: THEME.textDim }}>Not in this file: {PARAM_KINDS.filter(k => !detected.kindCols[k]).join(', ')}</div>
           )}
-
-          {step === 'preview' && (
-            <>
-              <div style={{ fontSize: 12, color: T.textDim }}>
-                <strong style={{ color: T.ok }}>{fileName}</strong> — {rows.length} station row(s) found.
-              </div>
-
-              <div style={{ fontSize: 12, color: T.textLt, lineHeight: 1.7 }}>
-                Detected columns:
-                <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
-                  <li>Station #: <strong style={{ color: T.textWh }}>{headers[detected.stationCol]}</strong></li>
-                  {detected.groupCol != null && (
-                    <li>Group: <strong style={{ color: T.textWh }}>{headers[detected.groupCol]}</strong></li>
-                  )}
-                  {Object.entries(detected.kindCols).map(([kind, cols]) => (
-                    <li key={kind}>
-                      <strong style={{ color: T.tealBr }}>{kind}</strong>: {headers[cols.addrCol]}
-                      {cols.typeCol != null && `, ${headers[cols.typeCol]}`}
-                      {cols.unitCol != null && `, ${headers[cols.unitCol]}`}
-                    </li>
-                  ))}
-                </ul>
-                {PARAM_KINDS.filter(k => !detected.kindCols[k]).length > 0 && (
-                  <div style={{ marginTop: 6, color: T.textDim }}>
-                    Not found in this file (fine if none of your stations use it): {PARAM_KINDS.filter(k => !detected.kindCols[k]).join(', ')}
-                  </div>
-                )}
-              </div>
-
-              {preview && preview.warnings.length > 0 && (
-                <div style={{ background: '#FFF3E0', border: `1px solid ${T.warn}55`, borderRadius: 6, padding: '8px 12px', fontSize: 11.5, color: '#7A4A00', lineHeight: 1.6 }}>
-                  {preview.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
-                </div>
-              )}
-
-              {preview && (
-                <div style={{ fontSize: 12.5, color: T.textLt }}>
-                  Ready to apply <strong style={{ color: T.accent }}>{preview.appliedCount}</strong> parameter(s)
-                  across <strong style={{ color: T.accent }}>{preview.stationCount}</strong> station(s).
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                <button onClick={() => setStep('upload')} style={{
-                  padding: '9px 18px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                  background: T.cardBg, border: `1.5px solid ${T.border}`, color: T.textLt, borderRadius: 6,
-                }}>← Choose different file</button>
-                <button
-                  onClick={() => { const { paramsByStation, groupByStation } = build(); onApply(paramsByStation, groupByStation); }}
-                  disabled={!preview || preview.appliedCount === 0}
-                  style={{
-                    padding: '9px 24px', fontSize: 12.5, fontWeight: 700, cursor: preview?.appliedCount === 0 ? 'default' : 'pointer',
-                    fontFamily: 'inherit', borderRadius: 6, border: 'none', color: '#FFFFFF',
-                    background: preview?.appliedCount === 0 ? T.textDim : T.accent,
-                  }}
-                >✔ Import {preview ? preview.appliedCount : ''} parameter(s)</button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+          {preview && preview.warnings.length > 0 && <Callout toneName="warn" icon="⚠">{preview.warnings.map((w, i) => <div key={i}>{w}</div>)}</Callout>}
+          {preview && <div style={{ fontSize: 14 }}>Ready to apply <b style={{ color: THEME.accentDark }}>{preview.appliedCount}</b> parameters across <b style={{ color: THEME.accentDark }}>{preview.stationCount}</b> stations.</div>}
+        </>
+      )}
+    </Modal>
   );
 }

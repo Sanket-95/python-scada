@@ -1,0 +1,171 @@
+{
+  "report_id": "RPT-ALAR-20250819-8529F5",
+  "report": "alarms",
+  "title": "Alarm and Event History Report",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "events": 10,
+    "info": 0,
+    "warning": 8,
+    "critical": 2,
+    "fault": 0,
+    "open": 0,
+    "unacknowledged": 0,
+    "mean_time_to_ack_min": 7.4
+  },
+  "rows": [
+    {
+      "event_id": "ALM-250819-0003",
+      "timestamp": "2025-08-19T06:44:50",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "severity": "WARNING",
+      "equipment_id": "PACK-01",
+      "code": "PACK_STOP",
+      "description": "Pouch Packing Machine 1 stopped — Film reel change overrun",
+      "value": 10.3,
+      "unit": "min",
+      "threshold": null,
+      "ack_status": "Acknowledged",
+      "ack_time": "2025-08-19T06:53:04",
+      "resolved_time": "2025-08-19T06:55:08",
+      "resolution": "Cleared by operator, line restarted",
+      "ref": "FG-250819-01-02",
+      "is_mock": true
+    },
+    {
+      "event_id": "ALM-250819-0005",
+      "timestamp": "2025-08-19T07:43:12",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "severity": "WARNING",
+      "equipment_id": "RT-01",
+      "code": "TEMP_HIGH",
+      "description": "Intake milk temperature high (Cow, DLV-250819-05)",
+      "value": 8.759,
+      "unit": "°C",
+      "threshold": "> 8.0 °C",
+      "ack_status": "Acknowledged",
+      "ack_time": "2025-08-19T07:49:07",
+      "resolved_time": "2025-08-19T07:51:14",
+      "resolution": "Load accepted with QA review",
+      "ref": "DLV-250819-05",
+      "is_mock": true
+    },
+    {
+      "event_id": "ALM-250819-0006",
+      "timestamp": "2025-08-19T08:08:28",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "severity": "CRITICAL",
+      "equipment_id": "RT-01",
+      "code": "TEMP_HIGH",
+      "description": "Intake milk temperature high (Cow, DLV-250819-06)",
+      "value": 11.447,
+      "unit": "°C",
+      "threshold": "> 8.0 °C",
+      "ack_status": "Acknowledged",
+      "ack_time": "2025-08-19T08:19:40",
+      "resolved_time": "2025-08-19T08:16:31",
+      "resolution": "Load rejected",
+      "ref": "DLV-250819-06",
+      "is_mock": true
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total": 10,
+    "pages": 1
+  },
+  "columns": [
+    {
+      "key": "event_id",
+      "label": "Event"
+    },
+    {
+      "key": "timestamp",
+      "label": "Time",
+      "kind": "datetime"
+    },
+    {
+      "key": "severity",
+      "label": "Severity",
+      "kind": "status"
+    },
+    {
+      "key": "equipment_id",
+      "label": "Equipment"
+    },
+    {
+      "key": "code",
+      "label": "Code"
+    },
+    {
+      "key": "description",
+      "label": "Description"
+    },
+    {
+      "key": "value",
+      "label": "Value"
+    },
+    {
+      "key": "unit",
+      "label": "Unit"
+    },
+    {
+      "key": "threshold",
+      "label": "Threshold"
+    },
+    {
+      "key": "ack_status",
+      "label": "Ack",
+      "kind": "status"
+    },
+    {
+      "key": "ack_time",
+      "label": "Ack time",
+      "kind": "datetime",
+      "hidden": true
+    },
+    {
+      "key": "resolved_time",
+      "label": "Resolved",
+      "kind": "datetime"
+    },
+    {
+      "key": "resolution",
+      "label": "Resolution",
+      "hidden": true
+    }
+  ],
+  "charts": {
+    "daily": [
+      {
+        "x": "2025-08-19",
+        "WARNING": 8,
+        "CRITICAL": 2
+      }
+    ]
+  },
+  "notes": [
+    "Alarms are generated only when the simulated condition occurs (tank level, temperature, flow, faults, routing interlocks, process / CIP deviations). None are fabricated independently of equipment state."
+  ]
+}

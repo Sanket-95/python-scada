@@ -1,0 +1,280 @@
+{
+  "report_id": "RPT-PACK-20250819-CC0D20",
+  "report": "packaging",
+  "title": "Production and Packaging Report",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "records": 10,
+    "planned_units": 137206,
+    "produced_units": 136471,
+    "accepted_packs": 135611,
+    "rejected_packs": 860,
+    "finished_volume_l": 80147.0,
+    "rejected_volume_l": 532.0,
+    "downtime_min": 22.4,
+    "operating_min": 1285.3,
+    "by_pack_size": {
+      "500": {
+        "accepted_packs": 110928,
+        "rejected_packs": 656,
+        "finished_volume_l": 55464.0
+      },
+      "1000": {
+        "accepted_packs": 24683,
+        "rejected_packs": 204,
+        "finished_volume_l": 24683.0
+      }
+    }
+  },
+  "rows": [
+    {
+      "fg_batch_id": "FG-250819-01-02",
+      "batch_id": "PB-250819-01",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "product_code": "FCM",
+      "product_name": "Full Cream Milk",
+      "line_id": "PACK-01",
+      "pack_size_ml": 500,
+      "planned_units": 10961,
+      "produced_units": 10878,
+      "accepted_packs": 10812,
+      "rejected_packs": 66,
+      "speed_pph": 7200,
+      "operating_min": 90.6,
+      "downtime_min": 10.3,
+      "downtime_reason": "Film reel change overrun",
+      "finished_volume_l": 5406.0,
+      "rejected_volume_l": 33.0,
+      "disposition": "Released (demo)",
+      "start": "2025-08-19T05:33:30",
+      "end": "2025-08-19T07:14:27",
+      "cold_storage_in": "2025-08-19T07:38:20",
+      "dispatch_id": "DSP-250819-07",
+      "dispatch_time": "2025-08-19T19:51:37",
+      "is_mock": true
+    },
+    {
+      "fg_batch_id": "FG-250819-02-05",
+      "batch_id": "PB-250819-02",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "product_code": "TM",
+      "product_name": "Toned Milk",
+      "line_id": "PACK-02",
+      "pack_size_ml": 1000,
+      "planned_units": 4734,
+      "produced_units": 4711,
+      "accepted_packs": 4659,
+      "rejected_packs": 52,
+      "speed_pph": 4200,
+      "operating_min": 67.3,
+      "downtime_min": 0.0,
+      "downtime_reason": null,
+      "finished_volume_l": 4659.0,
+      "rejected_volume_l": 52.0,
+      "disposition": "On hold — QA review",
+      "start": "2025-08-19T08:58:00",
+      "end": "2025-08-19T10:05:18",
+      "cold_storage_in": "2025-08-19T10:16:18",
+      "dispatch_id": null,
+      "dispatch_time": null,
+      "is_mock": true
+    },
+    {
+      "fg_batch_id": "FG-250819-01-04",
+      "batch_id": "PB-250819-02",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "product_code": "TM",
+      "product_name": "Toned Milk",
+      "line_id": "PACK-01",
+      "pack_size_ml": 500,
+      "planned_units": 14202,
+      "produced_units": 14135,
+      "accepted_packs": 14068,
+      "rejected_packs": 67,
+      "speed_pph": 7200,
+      "operating_min": 117.8,
+      "downtime_min": 0.0,
+      "downtime_reason": null,
+      "finished_volume_l": 7034.0,
+      "rejected_volume_l": 33.5,
+      "disposition": "On hold — QA review",
+      "start": "2025-08-19T08:58:00",
+      "end": "2025-08-19T10:55:48",
+      "cold_storage_in": "2025-08-19T11:14:56",
+      "dispatch_id": null,
+      "dispatch_time": null,
+      "is_mock": true
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total": 10,
+    "pages": 1
+  },
+  "columns": [
+    {
+      "key": "fg_batch_id",
+      "label": "FG batch"
+    },
+    {
+      "key": "batch_id",
+      "label": "Process batch"
+    },
+    {
+      "key": "report_date",
+      "label": "Date"
+    },
+    {
+      "key": "shift",
+      "label": "Shift"
+    },
+    {
+      "key": "product_name",
+      "label": "Product"
+    },
+    {
+      "key": "line_id",
+      "label": "Line"
+    },
+    {
+      "key": "pack_size_ml",
+      "label": "Pack",
+      "unit": "mL"
+    },
+    {
+      "key": "planned_units",
+      "label": "Planned"
+    },
+    {
+      "key": "produced_units",
+      "label": "Produced"
+    },
+    {
+      "key": "accepted_packs",
+      "label": "Accepted"
+    },
+    {
+      "key": "rejected_packs",
+      "label": "Rejected"
+    },
+    {
+      "key": "speed_pph",
+      "label": "Speed",
+      "unit": "packs/h"
+    },
+    {
+      "key": "operating_min",
+      "label": "Run",
+      "unit": "min"
+    },
+    {
+      "key": "downtime_min",
+      "label": "Down",
+      "unit": "min"
+    },
+    {
+      "key": "downtime_reason",
+      "label": "Downtime reason"
+    },
+    {
+      "key": "finished_volume_l",
+      "label": "Finished vol.",
+      "unit": "L"
+    },
+    {
+      "key": "disposition",
+      "label": "Disposition",
+      "kind": "status"
+    },
+    {
+      "key": "end",
+      "label": "Packed",
+      "kind": "datetime",
+      "hidden": true
+    },
+    {
+      "key": "cold_storage_in",
+      "label": "Cold store in",
+      "kind": "datetime",
+      "hidden": true
+    },
+    {
+      "key": "dispatch_id",
+      "label": "Dispatch",
+      "hidden": true
+    }
+  ],
+  "charts": {
+    "output": [
+      {
+        "x": "2025-08-19T07:00",
+        "packs": 10812
+      },
+      {
+        "x": "2025-08-19T10:00",
+        "packs": 18727
+      },
+      {
+        "x": "2025-08-19T14:00",
+        "packs": 21638
+      },
+      {
+        "x": "2025-08-19T18:00",
+        "packs": 24888
+      },
+      {
+        "x": "2025-08-19T20:00",
+        "packs": 5111
+      },
+      {
+        "x": "2025-08-19T21:00",
+        "packs": 15337
+      },
+      {
+        "x": "2025-08-20T04:00",
+        "packs": 39098
+      }
+    ],
+    "output_bucket": "hour",
+    "by_shift": [
+      {
+        "x": "Morning",
+        "packs": 29539
+      },
+      {
+        "x": "Afternoon",
+        "packs": 66974
+      },
+      {
+        "x": "Night",
+        "packs": 39098
+      }
+    ]
+  },
+  "notes": [
+    "Produced units = accepted packs + rejected packs (completed packs).",
+    "Finished-product volume = accepted packs × declared pack size, calculated per pack size and then summed.",
+    "Output chart uses the pack completion time; buckets are hourly for periods ≤ 3 days, daily otherwise."
+  ]
+}

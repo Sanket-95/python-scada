@@ -150,7 +150,7 @@ export function buildSimConfig(userCfg) {
         initFill: i < line.tanks * 0.33 ? 72 + (i % 5) * 3
                 : i < line.tanks * 0.66 ? 42 + (i % 6) * 3
                 :                          18 + (i % 4) * 4,
-        baseTemp: 360 + (i % 8) * 36,
+        baseTemp: 28 + (i % 8) * 6, // °C — fallback only; live Tank_<id>_Temp overrides
       })),
     };
   });

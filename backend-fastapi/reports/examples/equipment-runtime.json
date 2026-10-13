@@ -1,0 +1,256 @@
+{
+  "report_id": "RPT-EQUI-20250819-6CDB76",
+  "report": "equipment-runtime",
+  "title": "Equipment Runtime and Downtime Report",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "runtime_min": 6100.3,
+    "downtime_min": 22.4,
+    "fault_min": 22.4,
+    "alarm_count": 6
+  },
+  "rows": [
+    {
+      "equipment_id": "P-101",
+      "equipment_name": "Reception Transfer Pump",
+      "kind": "Pump",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "first_start": "2025-08-19T07:03:34",
+      "last_stop": "2025-08-19T14:00:00",
+      "runtime_min": 300.7,
+      "idle_min": 179.3,
+      "downtime_min": 0.0,
+      "fault_min": 0.0,
+      "planned_down_min": 0.0,
+      "fault_reason": null,
+      "alarm_count": 0,
+      "maintenance_status": "OK",
+      "utilization_pct": 62.6,
+      "window_min": 480.0,
+      "is_mock": true
+    },
+    {
+      "equipment_id": "P-201",
+      "equipment_name": "Cow Silo Feed Pump",
+      "kind": "Pump",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "first_start": "2025-08-19T07:37:00",
+      "last_stop": "2025-08-19T11:43:42",
+      "runtime_min": 136.7,
+      "idle_min": 343.3,
+      "downtime_min": 0.0,
+      "fault_min": 0.0,
+      "planned_down_min": 0.0,
+      "fault_reason": null,
+      "alarm_count": 0,
+      "maintenance_status": "OK",
+      "utilization_pct": 28.5,
+      "window_min": 480.0,
+      "is_mock": true
+    },
+    {
+      "equipment_id": "P-202",
+      "equipment_name": "Buffalo Silo Feed Pump",
+      "kind": "Pump",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "first_start": "2025-08-19T07:37:00",
+      "last_stop": "2025-08-19T08:48:00",
+      "runtime_min": 71.0,
+      "idle_min": 409.0,
+      "downtime_min": 0.0,
+      "fault_min": 0.0,
+      "planned_down_min": 0.0,
+      "fault_reason": null,
+      "alarm_count": 0,
+      "maintenance_status": "OK",
+      "utilization_pct": 14.8,
+      "window_min": 480.0,
+      "is_mock": true
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total": 36,
+    "pages": 1
+  },
+  "columns": [
+    {
+      "key": "report_date",
+      "label": "Date"
+    },
+    {
+      "key": "shift",
+      "label": "Shift"
+    },
+    {
+      "key": "equipment_id",
+      "label": "Equipment"
+    },
+    {
+      "key": "equipment_name",
+      "label": "Name"
+    },
+    {
+      "key": "first_start",
+      "label": "First start",
+      "kind": "datetime"
+    },
+    {
+      "key": "last_stop",
+      "label": "Last stop",
+      "kind": "datetime"
+    },
+    {
+      "key": "runtime_min",
+      "label": "Run",
+      "unit": "min"
+    },
+    {
+      "key": "idle_min",
+      "label": "Idle",
+      "unit": "min"
+    },
+    {
+      "key": "downtime_min",
+      "label": "Down",
+      "unit": "min"
+    },
+    {
+      "key": "fault_min",
+      "label": "Fault",
+      "unit": "min"
+    },
+    {
+      "key": "fault_reason",
+      "label": "Fault / downtime reason"
+    },
+    {
+      "key": "alarm_count",
+      "label": "Alarms"
+    },
+    {
+      "key": "maintenance_status",
+      "label": "Maintenance",
+      "kind": "status"
+    },
+    {
+      "key": "utilization_pct",
+      "label": "Utilization",
+      "unit": "%",
+      "hidden": true
+    }
+  ],
+  "charts": {
+    "by_equipment": [
+      {
+        "x": "P-101",
+        "run": 529.5,
+        "idle": 910.5,
+        "down": 0.0,
+        "fault": 0.0
+      },
+      {
+        "x": "P-201",
+        "run": 313.0,
+        "idle": 1127.0,
+        "down": 0.0,
+        "fault": 0.0
+      },
+      {
+        "x": "P-202",
+        "run": 329.9,
+        "idle": 1110.0,
+        "down": 0.0,
+        "fault": 0.0
+      },
+      {
+        "x": "P-401",
+        "run": 989.6,
+        "idle": 450.4,
+        "down": 0.0,
+        "fault": 0.0
+      },
+      {
+        "x": "V-301",
+        "run": 226.9,
+        "idle": 1213.1,
+        "down": 0.0,
+        "fault": 0.0
+      },
+      {
+        "x": "V-302",
+        "run": 493.9,
+        "idle": 946.1,
+        "down": 0.0,
+        "fault": 0.0
+      },
+      {
+        "x": "PAST-01",
+        "run": 493.9,
+        "idle": 946.1,
+        "down": 0.0,
+        "fault": 0.0
+      },
+      {
+        "x": "HOMO-01",
+        "run": 493.9,
+        "idle": 946.1,
+        "down": 0.0,
+        "fault": 0.0
+      },
+      {
+        "x": "COOL-01",
+        "run": 493.9,
+        "idle": 946.1,
+        "down": 0.0,
+        "fault": 0.0
+      },
+      {
+        "x": "PACK-01",
+        "run": 967.1,
+        "idle": 450.4,
+        "down": 22.4,
+        "fault": 22.4
+      },
+      {
+        "x": "PACK-02",
+        "run": 355.6,
+        "idle": 1084.5,
+        "down": 0.0,
+        "fault": 0.0
+      },
+      {
+        "x": "CIP-01",
+        "run": 413.1,
+        "idle": 1026.9,
+        "down": 0.0,
+        "fault": 0.0
+      }
+    ]
+  },
+  "notes": [
+    "Runtime, fault and downtime are derived from simulated equipment events (run / fault / planned-down intervals).",
+    "Overlaps are resolved with precedence FAULT > planned DOWN > RUN, so durations never double-count; idle = shift window − run − fault − planned down."
+  ]
+}

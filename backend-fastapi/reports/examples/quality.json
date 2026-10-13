@@ -1,0 +1,283 @@
+{
+  "report_id": "RPT-QUAL-20250819-4ED401",
+  "report": "quality",
+  "title": "Milk Quality Testing Report",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "samples": 14,
+    "tested": 14,
+    "within_demo_rules": 6,
+    "review_required": 7,
+    "rejected": 1,
+    "pending": 0,
+    "not_tested_missing_record": 0,
+    "avg_fat_pct_simple": 5.49,
+    "avg_snf_pct_simple": 8.83
+  },
+  "rows": [
+    {
+      "sample_id": "SMP-250819-03",
+      "batch_id": "RB-250819-03",
+      "delivery_id": "DLV-250819-03",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "center_id": "CC-01",
+      "center_name": "Ambegaon Collection Centre",
+      "supplier_id": "SUP-1001",
+      "milk_type": "Cow",
+      "sample_time": "2025-08-19T06:56:11",
+      "test_time": "2025-08-19T07:03:34",
+      "fat_pct": 4.46,
+      "snf_pct": 8.96,
+      "density_kg_l": 1.0322,
+      "density_temp_c": 20.0,
+      "clr": 30.8,
+      "protein_pct": null,
+      "lactose_pct": 4.58,
+      "acidity_pct_la": 0.121,
+      "sample_temp_c": 4.6,
+      "method": "Ultrasonic milk analyser (demo method)",
+      "instrument_id": "LAB-UA-01",
+      "screening_status": "Screening pass",
+      "result_status": "Within demo rules",
+      "review_reasons": [],
+      "reviewer_id": null,
+      "weight_l": 6535.838,
+      "is_mock": true
+    },
+    {
+      "sample_id": "SMP-250819-04",
+      "batch_id": "RB-250819-04",
+      "delivery_id": "DLV-250819-04",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "center_id": "CC-04",
+      "center_name": "Sonori Village Centre",
+      "supplier_id": "SUP-1006",
+      "milk_type": "Buffalo",
+      "sample_time": "2025-08-19T07:33:11",
+      "test_time": "2025-08-19T07:46:31",
+      "fat_pct": 8.3,
+      "snf_pct": 9.32,
+      "density_kg_l": 1.0304,
+      "density_temp_c": 20.0,
+      "clr": 29.2,
+      "protein_pct": 4.32,
+      "lactose_pct": null,
+      "acidity_pct_la": 0.145,
+      "sample_temp_c": 4.1,
+      "method": "Ultrasonic milk analyser (demo method)",
+      "instrument_id": "LAB-DM-01",
+      "screening_status": "Screening review",
+      "result_status": "Review required",
+      "review_reasons": [
+        "Adulterant screening flagged for review"
+      ],
+      "reviewer_id": "QA-12",
+      "weight_l": 4238.831,
+      "is_mock": true
+    },
+    {
+      "sample_id": "SMP-250819-05",
+      "batch_id": "RB-250819-05",
+      "delivery_id": "DLV-250819-05",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "center_id": "CC-01",
+      "center_name": "Ambegaon Collection Centre",
+      "supplier_id": "SUP-1001",
+      "milk_type": "Cow",
+      "sample_time": "2025-08-19T07:45:12",
+      "test_time": "2025-08-19T07:51:14",
+      "fat_pct": 3.65,
+      "snf_pct": 7.91,
+      "density_kg_l": 1.0288,
+      "density_temp_c": 20.0,
+      "clr": 27.3,
+      "protein_pct": 2.93,
+      "lactose_pct": null,
+      "acidity_pct_la": 0.135,
+      "sample_temp_c": 8.8,
+      "method": "Ultrasonic milk analyser (demo method)",
+      "instrument_id": "LAB-UA-02",
+      "screening_status": "Screening pass",
+      "result_status": "Review required",
+      "review_reasons": [
+        "SNF 7.91 % < demo min 8.0",
+        "Temperature 8.8 °C > demo max 8.0"
+      ],
+      "reviewer_id": "QA-12",
+      "weight_l": 5274.803,
+      "is_mock": true
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total": 14,
+    "pages": 1
+  },
+  "columns": [
+    {
+      "key": "sample_id",
+      "label": "Sample"
+    },
+    {
+      "key": "batch_id",
+      "label": "Batch"
+    },
+    {
+      "key": "milk_type",
+      "label": "Milk"
+    },
+    {
+      "key": "center_name",
+      "label": "Collection centre"
+    },
+    {
+      "key": "supplier_id",
+      "label": "Supplier",
+      "hidden": true
+    },
+    {
+      "key": "sample_time",
+      "label": "Sampled",
+      "kind": "datetime",
+      "hidden": true
+    },
+    {
+      "key": "test_time",
+      "label": "Tested",
+      "kind": "datetime"
+    },
+    {
+      "key": "fat_pct",
+      "label": "Fat",
+      "unit": "%",
+      "info": "fat"
+    },
+    {
+      "key": "snf_pct",
+      "label": "SNF",
+      "unit": "%",
+      "info": "snf"
+    },
+    {
+      "key": "density_kg_l",
+      "label": "Density @20 °C",
+      "unit": "kg/L",
+      "info": "density"
+    },
+    {
+      "key": "clr",
+      "label": "CLR @27 °C",
+      "info": "clr"
+    },
+    {
+      "key": "protein_pct",
+      "label": "Protein",
+      "unit": "%"
+    },
+    {
+      "key": "lactose_pct",
+      "label": "Lactose",
+      "unit": "%"
+    },
+    {
+      "key": "acidity_pct_la",
+      "label": "Acidity",
+      "unit": "% LA",
+      "info": "acidity"
+    },
+    {
+      "key": "sample_temp_c",
+      "label": "Sample temp",
+      "unit": "°C"
+    },
+    {
+      "key": "screening_status",
+      "label": "Screening",
+      "info": "screening"
+    },
+    {
+      "key": "result_status",
+      "label": "Result",
+      "kind": "status"
+    },
+    {
+      "key": "review_reasons",
+      "label": "Review reasons",
+      "hidden": true
+    },
+    {
+      "key": "instrument_id",
+      "label": "Instrument",
+      "hidden": true
+    },
+    {
+      "key": "method",
+      "label": "Method",
+      "hidden": true
+    },
+    {
+      "key": "reviewer_id",
+      "label": "Reviewer",
+      "hidden": true
+    }
+  ],
+  "charts": {
+    "rules": {
+      "Cow": {
+        "fat_min": 3.2,
+        "snf_min": 8.0,
+        "acidity_max": 0.155,
+        "temp_max": 8.0,
+        "density_min": 1.026,
+        "density_max": 1.034,
+        "reject_acidity": 0.18,
+        "reject_temp": 11.0,
+        "note": "Illustrative demo rule — verify against current applicable standards"
+      },
+      "Buffalo": {
+        "fat_min": 5.5,
+        "snf_min": 8.8,
+        "acidity_max": 0.16,
+        "temp_max": 8.0,
+        "density_min": 1.026,
+        "density_max": 1.036,
+        "reject_acidity": 0.18,
+        "reject_temp": 11.0,
+        "note": "Illustrative demo rule — verify against current applicable standards"
+      }
+    },
+    "methods": {
+      "composition": "Ultrasonic milk analyser (demo method)",
+      "density": "Digital density meter at 20 °C (demo)",
+      "clr": "Lactometer, corrected to 27 °C reference: CLR = (ρ₂₇ − 1.000) × 1000 (illustrative convention)",
+      "acidity": "Titration with 0.1 N NaOH, phenolphthalein end-point (demo method)"
+    }
+  },
+  "notes": [
+    "Illustrative demo rule — verify against current applicable standards — all thresholds come from the configurable demo specification.",
+    "Results outside a rule are flagged for review; measurements are never altered.",
+    "Protein / lactose are measured on ~60 % of samples; unmeasured values show as 'Not tested'.",
+    "Screening status never proves milk is free from every adulterant."
+  ]
+}

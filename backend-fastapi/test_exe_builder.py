@@ -11,6 +11,8 @@ disk are unaffected) — kept as a separate dict/module so the two build
 kinds never collide on build_id or stomp on each other's dist folders.
 """
 
+from __future__ import annotations  # allow `X | None` hints on Python 3.9
+
 import json
 import re
 import subprocess

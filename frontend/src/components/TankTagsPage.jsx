@@ -1,289 +1,114 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { getTankIdsByLine, TAG_DATA_TYPES } from '../config/tagConfig';
 import ExcelTagImportModal from './ExcelTagImportModal';
+import { THEME } from '../theme';
+import { Page, Card, Button, Badge, Input, Select, Segmented, SearchBox, Row, Callout, Mono } from '../ui/kit';
 
-// ── Semi-dark config theme (same as ConfigPanel) ──────────────────────────────
-const T = {
-  pageBg:    '#F0F2F6',
-  panelBg:   '#FFFFFF',
-  cardBg:    '#F4F5FA',
-  cardHdr:   '#E8EBF4',
-  inputBg:   '#FFFFFF',
-  inputText: '#1A2035',
-  border:    '#C4C8D4',
-  yellow:    '#1565C0',
-  accent:    '#1565C0',
-  ok:        '#2E7D32',
-  textWhite: '#1A2035',
-  textLt:    '#3A4F6A',
-  textDim:   '#8090A8',
-};
+// Tank Register (Mimic Page Config) — every tank's display name (this is the
+// station's name everywhere in the app), its load-status tag name, PLC address
+// and data type. A tank counts as loaded whenever its tag reads non-zero.
 
-const TYPE_COL = { barrel: '#4DBAFF', basket: '#30D878', rack: '#FFB300' };
+const typeOptions = TAG_DATA_TYPES.map(t => ({ value: t.id, label: t.label }));
 
 export default function TankTagsPage({ userCfg, tankTags, onSave, onBack }) {
   const [draft, setDraft] = useState(() => JSON.parse(JSON.stringify(tankTags)));
   const [showImport, setShowImport] = useState(false);
-  const [importedCount, setImportedCount] = useState(null);
+  const [notice, setNotice] = useState('');
+  const [query, setQuery] = useState('');
+  const [lineSel, setLineSel] = useState('all');
+  const [fill, setFill] = useState({ start: '', error: '' });
+  const dirty = JSON.stringify(draft) !== JSON.stringify(tankTags);
 
-  const setTag = (id, field, val) =>
-    setDraft(d => ({ ...d, [id]: { ...d[id], [field]: val } }));
+  const setTag = (id, field, val) => setDraft(d => ({ ...d, [id]: { ...d[id], [field]: val } }));
 
-  // Merge an Excel import's patch into the draft — only the fields that
-  // were actually mapped+non-empty for each tank, leaving everything else
-  // (including fields the user already hand-edited) untouched.
   const applyImport = patch => {
     setDraft(d => {
       const next = { ...d };
-      Object.entries(patch).forEach(([tankId, update]) => {
-        next[tankId] = { ...next[tankId], ...update };
-      });
+      Object.entries(patch).forEach(([id, u]) => { next[id] = { ...next[id], ...u }; });
       return next;
     });
-    setImportedCount(Object.keys(patch).length);
+    setNotice(`Imported ${Object.keys(patch).length} tank${Object.keys(patch).length === 1 ? '' : 's'} from Excel — review and save.`);
     setShowImport(false);
   };
 
-  const lineGroups = useMemo(() =>
-    getTankIdsByLine(userCfg).map((ids, idx) => ({
-      line: userCfg.lines[idx],
-      ids:  ids.map(String),
-    }))
-  , [userCfg]);
+  const lines = useMemo(() => getTankIdsByLine(userCfg).map((ids, i) => ({ line: userCfg.lines[i], ids: ids.map(String) })), [userCfg]);
+  const visibleIds = (lineSel === 'all' ? lines : lines.filter(l => String(l.line.id) === lineSel))
+    .flatMap(l => l.ids)
+    .filter(id => {
+      if (!query) return true;
+      const t = draft[id] || {};
+      return `${id} ${t.label || ''} ${t.name || ''} ${t.address || ''}`.toLowerCase().includes(query.toLowerCase());
+    });
 
-  const totalTags = Object.keys(draft).length;
+  // Fill PLC addresses sequentially over the visible tanks: D701 → D701, D702, …
+  const autoFill = () => {
+    const m = fill.start.trim().match(/^([A-Za-z]+)(\d+)$/);
+    if (!m) { setFill(f => ({ ...f, error: 'Use letters then a number, e.g. D701' })); return; }
+    const [, prefix, digits] = m;
+    const base = parseInt(digits, 10);
+    setDraft(d => {
+      const next = { ...d };
+      visibleIds.forEach((id, i) => { next[id] = { ...next[id], address: `${prefix}${String(base + i).padStart(digits.length, '0')}` }; });
+      return next;
+    });
+    setFill({ start: '', error: '' });
+    setNotice(`Addresses filled for ${visibleIds.length} tanks starting at ${fill.start.trim()} — review and save.`);
+  };
+
+  const mapped = Object.values(draft).filter(t => (t.address || '').trim()).length;
 
   return (
-    <div style={{
-      width: '100%', height: '100%', overflowY: 'auto',
-      background: T.pageBg,
-      display: 'flex', flexDirection: 'column',
-      fontFamily: "'Segoe UI', system-ui, monospace",
-    }}>
-
-      {/* ── Header ── */}
-      <div style={{
-        background: T.cardHdr, borderBottom: `3px solid ${T.accent}`,
-        padding: '14px 28px', flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{
-            background: T.accent, color: '#001820',
-            fontWeight: 900, fontSize: 18, padding: '6px 12px',
-            borderRadius: 4, letterSpacing: 1,
-          }}>⊞</div>
-          <div>
-            <div style={{ fontSize: 11, color: T.accent, letterSpacing: 3, fontWeight: 600 }}>
-              MIMIC PAGE CONFIGURATION
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: T.textWhite, marginTop: 2 }}>
-              Define tag name, label, and PLC address for each tank
-            </div>
+    <Page onBack={onBack} crumbs={['Configuration']} title="Tank Register"
+      subtitle="Name every tank and map its load-status signal. The name here is how the tank appears across the whole app."
+      width={1320}
+      actions={(
+        <>
+          <Badge toneName={mapped === Object.keys(draft).length ? 'ok' : 'info'}>{mapped}/{Object.keys(draft).length} mapped</Badge>
+          {dirty && <Badge toneName="amber" dot>Unsaved changes</Badge>}
+          <Button icon="⇪" onClick={() => setShowImport(true)}>Import Excel</Button>
+          <Button disabled={!dirty} onClick={() => { setDraft(JSON.parse(JSON.stringify(tankTags))); setNotice(''); }}>Discard</Button>
+          <Button variant="primary" icon="✓" disabled={!dirty} onClick={() => onSave(draft)}>Save register</Button>
+        </>
+      )}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {notice && <Callout toneName="ok" icon="✓">{notice}</Callout>}
+        <Card pad={0}
+          title="Tanks" subtitle={`${visibleIds.length} shown`} icon="▥"
+          actions={(
+            <Row>
+              <Segmented size="sm" value={lineSel} onChange={setLineSel}
+                options={[{ value: 'all', label: 'All lines' }, ...lines.map(l => ({ value: String(l.line.id), label: l.line.label }))]} />
+              <SearchBox value={query} onChange={setQuery} placeholder="Name, tag or address…" width={220} />
+            </Row>
+          )}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', background: '#F8FAFB', borderBottom: '1px solid #EEF1F3', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: THEME.textMid }}>Bulk address fill</span>
+            <Input mono value={fill.start} placeholder="Start, e.g. D701" invalid={!!fill.error}
+              onChange={e => setFill({ start: e.target.value, error: '' })} style={{ width: 170, height: 32 }} />
+            <Button size="sm" onClick={autoFill} disabled={!fill.start.trim() || visibleIds.length === 0}>Fill {visibleIds.length} shown tanks</Button>
+            {fill.error && <span style={{ fontSize: 12.5, color: THEME.danger, fontWeight: 600 }}>{fill.error}</span>}
           </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button onClick={() => { setImportedCount(null); setShowImport(true); }} style={{
-            padding: '9px 18px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-            background: T.cardBg, border: `1.5px solid ${T.accent}`, color: T.accent, borderRadius: 6,
-          }}>📤 Import from Excel</button>
-          <div style={{
-            background: `${T.accent}18`, border: `1px solid ${T.accent}55`,
-            borderRadius: 8, padding: '6px 18px', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 9, color: T.accent, fontWeight: 700, letterSpacing: 2 }}>TOTAL TAGS</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: T.accent }}>{totalTags}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '70px minmax(200px, 1.3fr) minmax(180px, 1fr) 150px 220px', gap: 10, padding: '10px 18px', fontSize: 11.5, fontWeight: 700, letterSpacing: 0.8, color: THEME.textDim, background: '#F4F6F8' }}>
+            <span>TANK</span><span>DISPLAY NAME</span><span>TAG NAME</span><span>PLC ADDRESS</span><span>DATA TYPE</span>
           </div>
-        </div>
+          <div style={{ maxHeight: 'calc(100vh - 400px)', minHeight: 240, overflowY: 'auto' }}>
+            {visibleIds.map(id => {
+              const t = draft[id] || {};
+              return (
+                <div key={id} style={{ display: 'grid', gridTemplateColumns: '70px minmax(200px, 1.3fr) minmax(180px, 1fr) 150px 220px', gap: 10, alignItems: 'center', padding: '7px 18px', borderTop: '1px solid #EEF1F3' }}>
+                  <Mono style={{ fontWeight: 700, color: THEME.accentDark }}>T{id.padStart(2, '0')}</Mono>
+                  <Input value={t.label || ''} placeholder={`Tank ${id}`} onChange={e => setTag(id, 'label', e.target.value)} style={{ height: 34, fontWeight: 600 }} />
+                  <Input mono value={t.name || ''} onChange={e => setTag(id, 'name', e.target.value)} style={{ height: 34 }} />
+                  <Input mono value={t.address || ''} placeholder="not mapped" onChange={e => setTag(id, 'address', e.target.value)} style={{ height: 34 }} />
+                  <Select value={t.type || 'bool'} onChange={e => setTag(id, 'type', e.target.value)} options={typeOptions} style={{ height: 34, fontSize: 13 }} />
+                </div>
+              );
+            })}
+            {visibleIds.length === 0 && <div style={{ padding: 28, textAlign: 'center', color: THEME.textDim }}>No tanks match</div>}
+          </div>
+        </Card>
       </div>
-
-      {importedCount !== null && (
-        <div style={{
-          background: '#F1F8E9', borderBottom: `2px solid ${T.ok}55`,
-          padding: '8px 28px', fontSize: 12, color: '#2E7D32', fontWeight: 600,
-        }}>
-          ✔ Imported {importedCount} tag(s) from Excel — review below, then press "Save Tags" to keep them.
-        </div>
-      )}
-
-      {showImport && (
-        <ExcelTagImportModal
-          userCfg={userCfg}
-          onApply={applyImport}
-          onClose={() => setShowImport(false)}
-        />
-      )}
-
-      {/* ── Body — scrollable table per line ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px', display: 'flex', flexDirection: 'column', gap: 28 }}>
-
-        {lineGroups.map(({ line, ids }) => {
-          const col = TYPE_COL[line.type] || T.accent;
-          return (
-            <div key={line.id}>
-              {/* Line label */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10,
-                paddingBottom: 8, borderBottom: `2px solid ${col}`,
-              }}>
-                <div style={{
-                  background: col, color: '#0D1A10',
-                  fontWeight: 800, fontSize: 11, padding: '4px 12px', borderRadius: 4, letterSpacing: 1,
-                }}>{line.label}</div>
-                <span style={{ fontSize: 12, color: T.textLt }}>
-                  {ids.length} tanks · type: <span style={{ color: col, fontWeight: 700 }}>{line.type?.toUpperCase()}</span>
-                </span>
-              </div>
-
-              {/* Table */}
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: T.cardHdr }}>
-                    {['TANK #', 'TAG NAME', 'LABEL', 'PLC ADDRESS', 'TYPE'].map((h, i) => (
-                      <th key={h} style={{
-                        padding: '8px 12px', textAlign: 'left',
-                        fontSize: 9, fontWeight: 700, color: T.textDim, letterSpacing: 1.5,
-                        borderBottom: `1px solid ${T.border}`,
-                        width: i === 0 ? 80 : i === 4 ? 180 : 'auto',
-                      }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {ids.map((id, i) => {
-                    const tag = draft[id] || {};
-                    return (
-                      <tr key={id} style={{
-                        background: i % 2 === 0 ? T.cardBg : T.panelBg,
-                        transition: 'background 0.1s',
-                      }}>
-                        {/* Tank # */}
-                        <td style={{ padding: '6px 12px', borderBottom: `1px solid ${T.border}44` }}>
-                          <span style={{
-                            fontWeight: 800, fontSize: 13, color: col,
-                            background: `${col}18`, padding: '2px 8px', borderRadius: 4,
-                          }}>#{id}</span>
-                        </td>
-
-                        {/* Tag name */}
-                        <td style={{ padding: '6px 12px', borderBottom: `1px solid ${T.border}44` }}>
-                          <input
-                            value={tag.name || ''}
-                            onChange={e => setTag(id, 'name', e.target.value)}
-                            style={{
-                              width: '100%', boxSizing: 'border-box',
-                              background: T.inputBg, color: T.inputText,
-                              border: `1.5px solid ${T.border}`, borderRadius: 4,
-                              padding: '5px 8px', fontSize: 12, fontFamily: 'monospace',
-                              outline: 'none',
-                            }}
-                            onFocus={e => e.target.style.borderColor = T.accent}
-                            onBlur={e  => e.target.style.borderColor = T.border}
-                          />
-                        </td>
-
-                        {/* Label */}
-                        <td style={{ padding: '6px 12px', borderBottom: `1px solid ${T.border}44` }}>
-                          <input
-                            value={tag.label || ''}
-                            onChange={e => setTag(id, 'label', e.target.value)}
-                            style={{
-                              width: '100%', boxSizing: 'border-box',
-                              background: T.inputBg, color: T.inputText,
-                              border: `1.5px solid ${T.border}`, borderRadius: 4,
-                              padding: '5px 8px', fontSize: 12, fontFamily: "'Segoe UI', sans-serif",
-                              outline: 'none',
-                            }}
-                            onFocus={e => e.target.style.borderColor = T.accent}
-                            onBlur={e  => e.target.style.borderColor = T.border}
-                          />
-                        </td>
-
-                        {/* PLC address — where the real tank-loaded bit is
-                            read from; blank means this tank keeps following
-                            the mock simulation (see plc_publisher.py) */}
-                        <td style={{ padding: '6px 12px', borderBottom: `1px solid ${T.border}44` }}>
-                          <input
-                            value={tag.address || ''}
-                            onChange={e => setTag(id, 'address', e.target.value)}
-                            placeholder="e.g. DB200.DBX0.0"
-                            style={{
-                              width: '100%', boxSizing: 'border-box',
-                              background: T.inputBg, color: T.inputText,
-                              border: `1.5px solid ${T.border}`, borderRadius: 4,
-                              padding: '5px 8px', fontSize: 12, fontFamily: 'monospace',
-                              outline: 'none',
-                            }}
-                            onFocus={e => e.target.style.borderColor = T.accent}
-                            onBlur={e  => e.target.style.borderColor = T.border}
-                          />
-                        </td>
-
-                        {/* Data type — selectable so a tag can be read as
-                            anything the PLC client layer supports, not just
-                            a bare bit */}
-                        <td style={{ padding: '6px 12px', borderBottom: `1px solid ${T.border}44` }}>
-                          <select
-                            value={tag.type || 'bool'}
-                            onChange={e => setTag(id, 'type', e.target.value)}
-                            style={{
-                              width: '100%', boxSizing: 'border-box',
-                              background: T.inputBg, color: T.inputText,
-                              border: `1.5px solid ${T.border}`, borderRadius: 4,
-                              padding: '5px 6px', fontSize: 11, fontFamily: 'inherit',
-                              outline: 'none', cursor: 'pointer',
-                            }}
-                            onFocus={e => e.target.style.borderColor = T.accent}
-                            onBlur={e  => e.target.style.borderColor = T.border}
-                          >
-                            {TAG_DATA_TYPES.map(t => (
-                              <option key={t.id} value={t.id}>{t.label}</option>
-                            ))}
-                          </select>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          );
-        })}
-
-        {/* Info note */}
-        <div style={{
-          background: '#F1F8E9', border: `1px solid ${T.ok}55`,
-          borderRadius: 6, padding: '10px 16px',
-          fontSize: 11, color: '#4A8A30', lineHeight: 1.6,
-        }}>
-          <strong style={{ color: T.ok }}>Live PLC read — no mock data:</strong> A tank's loaded status comes entirely
-          from its configured PLC address, read continuously from the real PLC (whichever brand/IP is saved on the PLC
-          Connection Test screen) — any non-zero value shows the tank as loaded in the 3D/2D view. A tank with no
-          address set here simply shows as never loaded until one is configured (there's no simulated fallback anymore).
-        </div>
-      </div>
-
-      {/* ── Footer ── */}
-      <div style={{
-        background: T.panelBg, borderTop: `2px solid ${T.border}`,
-        padding: '14px 28px', flexShrink: 0,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.08)',
-      }}>
-        <button onClick={onBack} style={{
-          padding: '10px 24px', fontSize: 13, fontWeight: 600,
-          background: T.cardBg, border: `1.5px solid ${T.border}`,
-          color: T.textLt, cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',
-        }}>← Back to Lines</button>
-
-        <button onClick={() => onSave(draft)} style={{
-          padding: '10px 32px', fontSize: 13, fontWeight: 700,
-          background: T.yellow, border: 'none', color: '#FFFFFF',
-          cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',
-          boxShadow: `0 0 18px ${T.yellow}55`,
-        }}>✔ Save Tags</button>
-      </div>
-    </div>
+      {showImport && <ExcelTagImportModal userCfg={userCfg} onApply={applyImport} onClose={() => setShowImport(false)} />}
+    </Page>
   );
 }

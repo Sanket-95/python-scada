@@ -24,6 +24,8 @@ backend restart loses in-progress/finished build records (the exe files on
 disk are unaffected).
 """
 
+from __future__ import annotations  # allow `X | None` hints on Python 3.9
+
 import json
 import re
 import subprocess

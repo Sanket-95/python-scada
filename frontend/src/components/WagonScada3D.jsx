@@ -3,13 +3,15 @@ import { OrbitControls, useTexture, Html } from '@react-three/drei';
 import { CanvasTexture, RepeatWrapping, Color, FogExp2 } from 'three';
 import { useWagonSimulation } from '../hooks/useWagonSimulation';
 import { useTagSocket } from '../hooks/useTagSocket';
+import { useMockTags } from '../hooks/useMockTags';
 import { C } from '../config/scadaConfig';
+import { THEME, FONT, FONT_COND, BRAND } from '../theme';
+import { processLook } from '../config/processLook';
 import { useState, useEffect, useRef, Suspense, memo, useMemo, useCallback } from 'react';
 import WagonScadaScreen from './WagonScadaScreen';
 import ConfigPanel from './ConfigPanel';
 import TankTagsPage from './TankTagsPage';
 import WagonTagsPage from './WagonTagsPage';
-import TagMonitorPage from './TagMonitorPage';
 import StationInfoPage from './StationInfoPage';
 import StationColumnConfigPage, { DEFAULT_STATION_COLS } from './StationColumnConfigPage';
 import StationNamesConfigPage, { buildNamesArray } from './StationNamesConfigPage';
@@ -18,6 +20,8 @@ import SettingsPage from './SettingsPage';
 import TankPartitionConfigPage from './TankPartitionConfigPage';
 import CrossTrolleyConfigPage from './CrossTrolleyConfigPage';
 import AppBuilderPage from './AppBuilderPage';
+import Dairy3DPage from './Dairy3DPage';
+import ReportsPage from './ReportsPage';
 import PlcConnectionTestPage from './PlcConnectionTestPage';
 import {
   loadPageSelection, savePageSelection,
@@ -35,6 +39,7 @@ import {
   loadHeaderConfig, saveHeaderConfig,
   loadHeaderConfigFromFile, saveHeaderConfigToFile,
 } from '../config/headerConfig';
+import { loadPlcConfig, savePlcConfig, loadPlcConfigFromServer, dataSourceOf } from '../config/plcConfig';
 
 // ── Hazard stripe texture (yellow + black diagonal — construction standard) ───
 function buildHazardTex() {
@@ -63,6 +68,8 @@ const hazardTex = () => { if (!_hz) _hz = buildHazardTex(); return _hz; };
 
 // ── Sprite label system — canvas texture per unique string, cached globally ───
 // Much faster than <Html>: no DOM element, just a textured quad per label.
+// Graphite plate, white condensed lettering, coloured accent bar on the left.
+const LABEL_FONT = "'Barlow Condensed', 'Barlow', sans-serif";
 const _lblCache = new Map();
 function getLabelTex(text, color) {
   const key = `${text}|${color}`;
@@ -71,31 +78,96 @@ function getLabelTex(text, color) {
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
-  // Solid black tag with a color-coded border — matches the reference SCADA
-  // screen's black ID plates (white text), while the border keeps tank
-  // labels (amber) visually distinct from wagon labels (cyan).
-  ctx.fillStyle = 'rgba(2,2,2,0.96)';
-  ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2.5;
-  ctx.strokeRect(1, 1, W - 2, H - 2);
+  const r = 7;
+  ctx.fillStyle = 'rgba(22,27,34,0.94)';
+  ctx.beginPath();
+  ctx.moveTo(r, 0); ctx.lineTo(W - r, 0); ctx.quadraticCurveTo(W, 0, W, r);
+  ctx.lineTo(W, H - r); ctx.quadraticCurveTo(W, H, W - r, H);
+  ctx.lineTo(r, H); ctx.quadraticCurveTo(0, H, 0, H - r);
+  ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 6, 6, H - 12);
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${text.length > 4 ? 17 : 20}px monospace`;
+  const font = `700 ${text.length > 5 ? 22 : 27}px ${LABEL_FONT}`;
+  ctx.font = font;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, W / 2, H / 2);
+  ctx.fillText(text, W / 2 + 3, H / 2 + 1);
   const tex = new CanvasTexture(cv);
+  tex.anisotropy = 4;
   _lblCache.set(key, tex);
   return tex;
 }
-function Label3D({ text, offsetY, color = '#FFB300', scaleX = 0.068 }) {
+// Labels drawn before the web font arrived used the fallback font — once it
+// has loaded, drop those so anything re-rendered after that redraws properly.
+if (typeof document !== 'undefined' && document.fonts?.load) {
+  Promise.all([22, 27].map(px => document.fonts.load(`700 ${px}px ${LABEL_FONT}`)))
+    .then(() => _lblCache.clear())
+    .catch(() => {});
+}
+function Label3D({ text, offsetY, color = '#F2A900', scaleX = 0.068, scaleY = 0.024 }) {
   const tex = getLabelTex(text, color);
   return (
-    <sprite position={[0, offsetY, 0]} scale={[scaleX, 0.024, 1]}>
+    <sprite position={[0, offsetY, 0]} scale={[scaleX, scaleY, 1]}>
       <spriteMaterial map={tex} transparent depthWrite={false} sizeAttenuation={false} />
     </sprite>
   );
 }
+
+// ── Procedural textures (canvas, generated once) ─────────────────────────────
+function makeCanvasTex(w, h, draw, repeat = null) {
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  draw(cv.getContext('2d'), w, h);
+  const tex = new CanvasTexture(cv);
+  if (repeat) { tex.wrapS = RepeatWrapping; tex.wrapT = RepeatWrapping; tex.repeat.set(...repeat); }
+  tex.anisotropy = 8;
+  return tex;
+}
+function speckle(ctx, w, h, n, colors) {
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 2, 1 + Math.random() * 2);
+  }
+}
+const lazyTex = make => { let t = null; return () => (t ??= make()); };
+
+// Polished concrete slab — one texture tile = one 6 × 6 m slab, with saw-cut
+// joints at the edges.
+const floorTex = lazyTex(() => makeCanvasTex(512, 512, (ctx, w, h) => {
+  ctx.fillStyle = '#8C918F'; ctx.fillRect(0, 0, w, h);
+  speckle(ctx, w, h, 9000, ['rgba(255,255,255,0.06)', 'rgba(0,0,0,0.07)', 'rgba(60,60,55,0.05)']);
+  for (let i = 0; i < 14; i++) {           // faint trowel marks
+    ctx.strokeStyle = `rgba(255,255,255,${0.015 + Math.random() * 0.02})`;
+    ctx.lineWidth = 20 + Math.random() * 40;
+    ctx.beginPath(); ctx.arc(Math.random() * w, Math.random() * h, 60 + Math.random() * 200, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(35,38,40,0.55)'; ctx.lineWidth = 3;
+  ctx.strokeRect(1.5, 1.5, w - 3, h - 3);
+}));
+
+// Green epoxy walkway coating.
+const aisleTex = lazyTex(() => makeCanvasTex(256, 256, (ctx, w, h) => {
+  ctx.fillStyle = '#4E6B5E'; ctx.fillRect(0, 0, w, h);
+  speckle(ctx, w, h, 2500, ['rgba(255,255,255,0.05)', 'rgba(0,0,0,0.06)']);
+}));
+
+// Corrugated cladding for the building's back wall.
+const wallTex = lazyTex(() => makeCanvasTex(256, 64, (ctx, w, h) => {
+  for (let x = 0; x < w; x += 16) {
+    const g = ctx.createLinearGradient(x, 0, x + 16, 0);
+    g.addColorStop(0, '#9AA3AC'); g.addColorStop(0.5, '#B9C1C8'); g.addColorStop(1, '#949DA6');
+    ctx.fillStyle = g; ctx.fillRect(x, 0, 16, h);
+  }
+}));
+
+// Soft contact shadow under a tank — cheaper than real shadow mapping.
+const shadowTex = lazyTex(() => makeCanvasTex(128, 128, (ctx, w, h) => {
+  const g = ctx.createRadialGradient(w / 2, h / 2, 8, w / 2, h / 2, w / 2);
+  g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(0.6, 'rgba(0,0,0,0.25)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+}));
 
 // ── Coordinate mapping ────────────────────────────────────────────────────────
 const SPACING = 1.05;
@@ -104,7 +176,7 @@ const Z2 = 3.4;
 const TRACK_Z_LIST = [Z1, Z2, 6.8, 10.2];   // Z positions for up to 4 production lines
 const mapX  = px  => (px - 140) / 47 * SPACING;
 const trkZ  = idx => TRACK_Z_LIST[idx] ?? TRACK_Z_LIST[TRACK_Z_LIST.length - 1];
-const SKY   = '#0A1628';                      // dark industrial sky — objects read clearly
+const SKY   = '#1C2229';                      // building interior beyond the lit area
 
 // ── Dimensions ────────────────────────────────────────────────────────────────
 // Real process tanks run wide/shallow (open vats), not tall and narrow —
@@ -150,17 +222,30 @@ const ARM_TOP_Y = D.bodyY - D.bodyH / 2 - 0.04;          // ≈ 3.13
 const BARREL_TRANSIT_Y = D.bodyY - D.bodyH / 2 - D.legH / 2;  // ≈ 2.40
 
 // ── Shared stable materials ───────────────────────────────────────────────────
-const YELLOW = <meshStandardMaterial color="#FFB300" roughness={0.2} metalness={0.5} />;
-const ORANGE = <meshStandardMaterial color="#E87820" roughness={0.4} metalness={0.2} />;
-const NAVY   = <meshStandardMaterial color="#6A7E92" roughness={0.5} metalness={0.3} />;
-const STEEL  = <meshStandardMaterial color="#8A9CAE" roughness={0.3} metalness={0.7} />;
-const RED    = <meshStandardMaterial color="#B71C1C" roughness={0.35} metalness={0.45} />;
-const GOLD   = <meshStandardMaterial color="#C9A227" roughness={0.35} metalness={0.5} />;
-const GRAY_PANEL = <meshStandardMaterial color="#5A6472" roughness={0.45} metalness={0.4} />;
+const YELLOW = <meshStandardMaterial color="#E8A80C" roughness={0.45} metalness={0.35} />;   // hoist paint
+const ORANGE = <meshStandardMaterial color="#D9771A" roughness={0.45} metalness={0.25} />;
+const NAVY   = <meshStandardMaterial color="#3B4651" roughness={0.5} metalness={0.45} />;    // structural steel paint
+const STEEL  = <meshStandardMaterial color="#9AA4AD" roughness={0.32} metalness={0.75} />;
+const RED    = <meshStandardMaterial color="#3B4651" roughness={0.5} metalness={0.45} />;
+const GOLD   = <meshStandardMaterial color="#E8A80C" roughness={0.45} metalness={0.35} />;
+const GRAY_PANEL = <meshStandardMaterial color="#5E6A75" roughness={0.4} metalness={0.5} />;
+const DARK_STEEL = <meshStandardMaterial color="#2B3238" roughness={0.5} metalness={0.6} />;
+const RUBBER     = <meshStandardMaterial color="#15181C" roughness={0.85} metalness={0.1} />;
+const CABLE      = <meshStandardMaterial color="#1D2125" roughness={0.6} metalness={0.5} />;
+// Clear acrylic walls — the tank is see-through so the load in the bath is
+// visible from outside. depthWrite off + a later renderOrder so the bath and
+// load behind each wall still draw.
+const TANK_GLASS = <meshStandardMaterial color="#D6ECF3" transparent opacity={0.2} roughness={0.05} metalness={0.15}
+  depthWrite={false} side={2} />;
+const TANK_FLOOR = <meshStandardMaterial color="#2B3238" roughness={0.8} metalness={0.1} />;
+const TANK_RIM   = <meshStandardMaterial color="#8E979F" roughness={0.45} metalness={0.25} />;
+const TANK_BAND  = <meshStandardMaterial color="#59626B" roughness={0.4} metalness={0.65} />;
+const RAIL_HEAD  = <meshStandardMaterial color="#A9B1B8" roughness={0.25} metalness={0.85} />;
+const HAZARD     = () => <meshStandardMaterial map={hazardTex()} roughness={0.6} metalness={0.1} />;
 
 // Wagon mode LED (Wagon Tags page's Auto/Manual/Service tags) — color,
 // label suffix, and legend text shown in the main screen's legend bar.
-const MODE_COLOR  = { auto: '#2ECC40', manual: '#FF8C00', service: '#2196F3' };
+const MODE_COLOR  = { auto: '#3FB97A', manual: '#F59E0B', service: '#3B9BEA' };
 const MODE_SUFFIX = { auto: 'A', manual: 'M', service: 'S' };
 const MODE_LEGEND = [
   { mode: 'auto',    label: 'AUTO' },
@@ -171,19 +256,6 @@ const MODE_LEGEND = [
 // Station parameter display scaling — the PLC stores these as scaled raw
 // integers, not engineering units (see stationParamValues below).
 const PARAM_SCALE = { 'Actual PH': 1 / 100 }; // Temperature removed — PLC already sends the calculated value
-
-// Reference plating-line screens (see 3dview.webp) run each tank in a different
-// vivid process color rather than one uniform blue — purely a cosmetic swap,
-// cycled by the tank's position along its line; fillLevel/hasLoad/isActive
-// still drive the geometry exactly as before.
-const TANK_PALETTE = [
-  { fill: '#0E6A9A', emissive: '#0A4A70' }, // blue
-  { fill: '#C2185B', emissive: '#7A0F3A' }, // magenta / pink
-  { fill: '#7B1FA2', emissive: '#4A1064' }, // purple
-  { fill: '#00897B', emissive: '#00564A' }, // teal
-  { fill: '#558B2F', emissive: '#33540F' }, // green
-  { fill: '#AFB42B', emissive: '#6B6E14' }, // olive / lime
-];
 
 // ── Barrel (reusable) ─────────────────────────────────────────────────────────
 // shade=false → photo texture (on wagon arm)
@@ -415,16 +487,21 @@ function Load3D({ type = 'barrel', shade = false }) {
   return <BarrelSuspended shade={shade} />;
 }
 
-// Shared per-station fill/load geometry — used by both a solo Tank3D and a
+// Shared per-station bath/load geometry — used by both a solo Tank3D and a
 // chamber inside a merged TankGroup3D, so the two stay visually consistent.
-function tankFillGeometry(st, loadType) {
-  const innerH = D.tankH - 0.10;
-  const chemH  = innerH * Math.max(0.08, st.fillLevel / 100 * 0.72);
-  const chemY  = -D.tankH / 2 + 0.05 + chemH / 2;
-  const loadItemY = loadType === 'basket'
-    ? -D.tankH / 2 + 0.05 + BASKET_H / 2   // upright cylinder
-    : -D.tankH / 2 + 0.05 + BARREL_R;       // barrel / rack (horizontal)
-  return { chemH, chemY, loadItemY };
+// The bath sits high in the tank (fillLevel nudges it a little); a load
+// hangs with its top just breaking the surface so it stays readable from a
+// distance. Dry stations get a grating at mid-height and the load rests on it.
+const WALL_T = 0.035;
+function tankFillGeometry(st, loadType, look) {
+  const innerH  = D.tankH - 0.06;
+  const bathH   = innerH * (0.72 + Math.min(Math.max(st.fillLevel, 0), 100) / 100 * 0.12);
+  const bathY   = -D.tankH / 2 + 0.04 + bathH / 2;
+  const surfaceY = bathY + bathH / 2;
+  const gratingY = -D.tankH / 2 + D.tankH * 0.38;
+  const itemHalf = loadType === 'basket' ? BASKET_H / 2 * 1.4 : BARREL_R * 1.4;
+  const loadItemY = look.dry ? gratingY + itemHalf + 0.02 : -D.tankH / 2 + 0.06 + itemHalf;
+  return { bathH, bathY, surfaceY, gratingY, loadItemY };
 }
 
 // Continuously spins its children around Y — used for the load item inside
@@ -438,119 +515,152 @@ function RotatingGroup({ speed = 0.8, children, ...props }) {
   return <group ref={ref} {...props}>{children}</group>;
 }
 
-// ── Tank ─ transparent open-top walls, chemical, barrel inside ────────────────
-// memo: skips re-render unless hasLoad / isActive / fillLevel changes
-const Tank3D = memo(function Tank3D({ st, z, loadType = 'barrel', idx = 0, tankW = D.tankW, tankTags = {}, stationParamValues = {}, onHover }) {
-  const x    = mapX(st.x);
-  const chem = TANK_PALETTE[idx % TANK_PALETTE.length];
-  const { chemH, chemY, loadItemY } = tankFillGeometry(st, loadType);
-
-  const hw = tankW / 2, hh = D.tankH / 2, hd = D.tankD / 2;
-  const wallColor = st.isActive ? '#BDDAEA' : '#C8D4E0';
-  const wallEmit  = st.isActive ? '#006EA0' : '#000';
-  const wallEmitI = st.isActive ? 0.10 : 0;
-
-  // The configured station name (Tank Tags page's own "label" field) —
-  // falls back to the plain tank number if that tag hasn't been named yet
-  // — plus any live station parameters (Station Info page's flexible
-  // label/address/type/unit list), one line each, e.g. "Actual Temp: 42.3 °C".
-  const tooltipName = tankTags[st.id]?.label || st.label;
-  const tooltipLines = [tooltipName, ...(stationParamValues[st.id] || []).map(p => `${p.label}: ${p.value}${p.unit ? ' ' + p.unit : ''}`)];
-  const tooltipY    = (2 * hh + TANK_LEG_H) + 0.6; // just above the always-visible number label
-  const handlePointerOver = e => { e.stopPropagation(); onHover?.({ x, y: tooltipY, z, lines: tooltipLines }); };
-  const handlePointerOut  = e => { e.stopPropagation(); onHover?.(null); };
-
+// Tank interior for one chamber: bath (or dry grating) + load item.
+function TankContents({ st, width, look, loadType }) {
+  const { bathH, bathY, surfaceY, gratingY, loadItemY } = tankFillGeometry(st, loadType, look);
+  const innerD = D.tankD - 2 * WALL_T - 0.006;
   return (
-    <group position={[x, hh + TANK_LEG_H, z]}>
-      {/* Invisible full-footprint hitbox — a single solid volume for hover
-          detection, so the tooltip doesn't flicker as the pointer crosses
-          the gaps between the thin wall/post/leg meshes below */}
-      <mesh onPointerOver={handlePointerOver} onPointerOut={handlePointerOut}>
-        <boxGeometry args={[tankW, D.tankH, D.tankD]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
-
-      {/* 4 support legs — hold the tank clear of the ground */}
-      {[[-1,-1],[-1,1],[1,-1],[1,1]].map(([sx,sz], i) => (
-        <mesh key={i} position={[sx * hw * 0.85, -hh - TANK_LEG_H / 2, sz * hd * 0.85]}>
-          <boxGeometry args={[TANK_LEG_S, TANK_LEG_H, TANK_LEG_S]} />{STEEL}
-        </mesh>
-      ))}
-
-      {/* Dark floor — solid base gives contrast for barrel/basket inside */}
-      <mesh position={[0, -hh + 0.01, 0]}>
-        <boxGeometry args={[tankW - 0.04, 0.04, D.tankD - 0.04]} />
-        <meshStandardMaterial color="#060A10" roughness={0.9} metalness={0.1} />
-      </mesh>
-
-      {/* Dark inner back wall — deepens the interior shadow effect */}
-      <mesh position={[0, 0, -hd + 0.012]} rotation={[0, 0, 0]}>
-        <planeGeometry args={[tankW - 0.04, D.tankH - 0.04]} />
-        <meshStandardMaterial color="#04080E" roughness={0.9} side={2} />
-      </mesh>
-
-      {/* Chemical fill — more saturated so it reads against dark floor */}
-      <mesh position={[0, chemY, 0]}>
-        <boxGeometry args={[tankW - 0.08, chemH, D.tankD - 0.08]} />
-        <meshStandardMaterial color={chem.fill} transparent opacity={0.58}
-          roughness={0.05} depthWrite={false}
-          emissive={chem.emissive} emissiveIntensity={0.30} />
-      </mesh>
-
-      {/* Load item inside tank — type matches the line's load type, scaled
-          up so it still reads clearly from a distance through the wall, and
-          continuously rotating so it reads as a distinct moving object */}
+    <>
+      {look.dry ? (
+        <>
+          {/* Grating deck */}
+          {Array.from({ length: 7 }, (_, i) => (
+            <mesh key={i} position={[0, gratingY, -innerD / 2 + (i + 0.5) * innerD / 7]}>
+              <boxGeometry args={[width, 0.025, 0.035]} />{DARK_STEEL}
+            </mesh>
+          ))}
+          {look.hot && (
+            <mesh position={[0, gratingY - 0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[width * 0.9, innerD * 0.9]} />
+              <meshStandardMaterial color="#3A1A08" emissive="#FF6A1A" emissiveIntensity={0.9} />
+            </mesh>
+          )}
+        </>
+      ) : (
+        <>
+          <mesh position={[0, bathY, 0]} renderOrder={1}>
+            <boxGeometry args={[width, bathH, innerD]} />
+            <meshStandardMaterial color={look.bath} transparent opacity={Math.min(look.opacity, 0.4)}
+              roughness={0.15} metalness={0.05} depthWrite={false} />
+          </mesh>
+          {/* Surface sheen */}
+          <mesh position={[0, surfaceY + 0.002, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[width, innerD]} />
+            <meshStandardMaterial color={look.bath} transparent opacity={0.35}
+              roughness={0.05} metalness={0.3} emissive={look.bath} emissiveIntensity={0.18}
+              depthWrite={false} />
+          </mesh>
+        </>
+      )}
       {st.hasLoad && (
         <RotatingGroup position={[0, loadItemY, 0]} scale={[1.4, 1.4, 1.4]}>
           <Load3D type={loadType} shade />
         </RotatingGroup>
       )}
+    </>
+  );
+}
 
-      {/* 4 transparent walls — no top face (open from top) */}
-      {[
-        { p: [0, 0,  hd], r: [0, 0,          0], w: tankW, h: D.tankH },
-        { p: [0, 0, -hd], r: [0, Math.PI,     0], w: tankW, h: D.tankH },
-        { p: [-hw, 0, 0], r: [0, -Math.PI / 2, 0], w: D.tankD, h: D.tankH },
-        { p: [ hw, 0, 0], r: [0,  Math.PI / 2, 0], w: D.tankD, h: D.tankH },
-      ].map(({ p, r, w, h }, i) => (
-        <mesh key={i} position={p} rotation={r} renderOrder={1}>
-          <planeGeometry args={[w, h]} />
-          <meshStandardMaterial
-            color={wallColor} transparent opacity={0.18}
-            roughness={0.04} side={2} depthWrite={false}
-            emissive={wallEmit} emissiveIntensity={wallEmitI}
-          />
+// Open-top tank shell: floor, 4 walls, rim flange, two reinforcing bands,
+// base skids and a contact shadow. Shared by solo and partitioned tanks.
+function TankShell({ width, active }) {
+  const hw = width / 2, hh = D.tankH / 2, hd = D.tankD / 2;
+  const rimMat = active
+    ? <meshStandardMaterial color="#14A3AE" roughness={0.35} metalness={0.3} emissive="#0E7C86" emissiveIntensity={0.6} />
+    : TANK_RIM;
+  return (
+    <>
+      {/* Contact shadow on the floor */}
+      <mesh position={[0, -hh - TANK_LEG_H + 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[width + 0.45, D.tankD + 0.45]} />
+        <meshBasicMaterial map={shadowTex()} transparent depthWrite={false} />
+      </mesh>
+      {/* Base skids */}
+      {[-1, 1].map(sz => (
+        <mesh key={sz} position={[0, -hh - TANK_LEG_H / 2, sz * hd * 0.7]}>
+          <boxGeometry args={[width + 0.02, TANK_LEG_H, 0.09]} />{DARK_STEEL}
         </mesh>
       ))}
-
-      {/* 4 corner posts — yellow with stronger glow */}
-      {[[-1,-1],[-1,1],[1,-1],[1,1]].map(([sx,sz], i) => (
-        <mesh key={i} position={[sx * hw, 0, sz * hd]}>
-          <boxGeometry args={[0.026, D.tankH, 0.026]} />
-          <meshStandardMaterial color="#FFB300" roughness={0.20} metalness={0.55}
-            emissive="#FF8800" emissiveIntensity={0.45} />
+      {/* Floor — dark, so the load inside stands out */}
+      <mesh position={[0, -hh + 0.02, 0]}>
+        <boxGeometry args={[width, 0.04, D.tankD]} />{TANK_FLOOR}
+      </mesh>
+      {/* Clear acrylic walls */}
+      {[-1, 1].map(sz => (
+        <mesh key={`fb${sz}`} position={[0, 0, sz * (hd - WALL_T / 2)]} renderOrder={2}>
+          <boxGeometry args={[width, D.tankH, WALL_T]} />{TANK_GLASS}
         </mesh>
       ))}
-
-      {/* Yellow square top frame — 4 perimeter bars only (no cross through middle) */}
-      {/* Front & back bars */}
-      {[hd, -hd].map((z, i) => (
-        <mesh key={i} position={[0, hh, z]}>
-          <boxGeometry args={[tankW + 0.03, 0.030, 0.030]} />
-          <meshStandardMaterial color="#FFB300" roughness={0.18} metalness={0.55}
-            emissive="#FF8800" emissiveIntensity={0.50} />
+      {[-1, 1].map(sx => (
+        <mesh key={`lr${sx}`} position={[sx * (hw - WALL_T / 2), 0, 0]} renderOrder={2}>
+          <boxGeometry args={[WALL_T, D.tankH, D.tankD - 2 * WALL_T]} />{TANK_GLASS}
         </mesh>
       ))}
-      {/* Left & right bars */}
-      {[-hw, hw].map((x, i) => (
-        <mesh key={i} position={[x, hh, 0]}>
-          <boxGeometry args={[0.030, 0.030, D.tankD - 0.026]} />
-          <meshStandardMaterial color="#FFB300" roughness={0.18} metalness={0.55}
-            emissive="#FF8800" emissiveIntensity={0.50} />
+      {/* Steel corner posts framing the glass */}
+      {[[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([sx, sz]) => (
+        <mesh key={`cp${sx}${sz}`} position={[sx * (hw - 0.012), 0, sz * (hd - 0.012)]}>
+          <boxGeometry args={[0.03, D.tankH, 0.03]} />{TANK_BAND}
         </mesh>
       ))}
+      {/* Rim flange */}
+      {[-1, 1].map(sz => (
+        <mesh key={`rf${sz}`} position={[0, hh + 0.012, sz * hd]}>
+          <boxGeometry args={[width + 0.07, 0.035, 0.075]} />{rimMat}
+        </mesh>
+      ))}
+      {[-1, 1].map(sx => (
+        <mesh key={`rs${sx}`} position={[sx * hw, hh + 0.012, 0]}>
+          <boxGeometry args={[0.075, 0.035, D.tankD]} />{rimMat}
+        </mesh>
+      ))}
+      {/* Reinforcing steel bands */}
+      {[-0.32, 0.22].map(fy => (
+        <group key={fy} position={[0, fy * D.tankH, 0]}>
+          {[-1, 1].map(sz => (
+            <mesh key={sz} position={[0, 0, sz * (hd + 0.008)]}>
+              <boxGeometry args={[width + 0.03, 0.035, 0.016]} />{TANK_BAND}
+            </mesh>
+          ))}
+          {[-1, 1].map(sx => (
+            <mesh key={`s${sx}`} position={[sx * (hw + 0.008), 0, 0]}>
+              <boxGeometry args={[0.016, 0.035, D.tankD + 0.03]} />{TANK_BAND}
+            </mesh>
+          ))}
+        </group>
+      ))}
+    </>
+  );
+}
 
-      <Label3D text={st.label} offsetY={hh + 0.24} />
+function tooltipLinesFor(st, tankTags, stationParamValues) {
+  const name = tankTags[st.id]?.label || st.label;
+  return [name, ...(stationParamValues[st.id] || []).map(p => `${p.label}: ${p.value}${p.unit ? ' ' + p.unit : ''}`)];
+}
+
+// ── Tank ─ open-top process tank with its bath and (when loaded) the load ──────
+// memo: skips re-render unless hasLoad / isActive / fillLevel / name changes
+const Tank3D = memo(function Tank3D({ st, z, loadType = 'barrel', idx = 0, tankW = D.tankW, tankTags = {}, stationParamValues = {}, onHover }) {
+  const x  = mapX(st.x);
+  const hh = D.tankH / 2;
+  const look = processLook(tankTags[st.id]?.label, idx);
+
+  const tooltipY = (2 * hh + TANK_LEG_H) + 0.6;
+  const handlePointerOver = e => { e.stopPropagation(); onHover?.({ x, y: tooltipY, z, lines: tooltipLinesFor(st, tankTags, stationParamValues) }); };
+  const handlePointerOut  = e => { e.stopPropagation(); onHover?.(null); };
+
+  return (
+    <group position={[x, hh + TANK_LEG_H, z]}>
+      {/* Invisible full-footprint hitbox — one solid volume for hover, so the
+          tooltip doesn't flicker as the pointer crosses the thin meshes */}
+      <mesh onPointerOver={handlePointerOver} onPointerOut={handlePointerOut}>
+        <boxGeometry args={[tankW, D.tankH, D.tankD]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      <TankShell width={tankW} active={st.isActive} />
+      <TankContents st={st} width={tankW - 2 * WALL_T - 0.006} look={look} loadType={loadType} />
+      <group position={[0, 0, D.tankD / 2 + 0.42]}>
+        <Label3D text={st.label} offsetY={-hh - TANK_LEG_H + 0.06} color={st.hasLoad ? '#F2A900' : '#7D8793'} scaleX={0.042} scaleY={0.0148} />
+      </group>
     </group>
   );
 }, (a, b) =>
@@ -560,196 +670,150 @@ const Tank3D = memo(function Tank3D({ st, z, loadType = 'barrel', idx = 0, tankW
   a.z            === b.z            &&
   a.loadType     === b.loadType     &&
   a.idx          === b.idx          &&
+  a.tankW        === b.tankW        &&
   a.tankTags[a.st.id]?.label === b.tankTags[b.st.id]?.label &&
   a.stationParamValues?.[a.st.id] === b.stationParamValues?.[b.st.id]
 );
 
 // ── Tank group ─ several adjacent tanks merged into one partitioned shell ─────
-// One continuous outer shell (floor, back wall, glass sides, top frame) spans
-// the full run; each original station still gets its own chemical fill, load
-// item, and number-plate label at its own position, separated by a thin
-// opaque divider — station data / fillLevel / hasLoad / isActive are read
-// exactly as before, only the outer housing is drawn differently.
+// One continuous outer shell spans the run; each original station still gets
+// its own bath, load item and number plate at its own position, separated by
+// a divider wall — station data is read exactly as for a solo tank.
 function TankGroup3D({ stations, z, loadType = 'barrel', tankW = D.tankW, tankTags = {}, stationParamValues = {}, onHover }) {
-  const hh = D.tankH / 2, hd = D.tankD / 2;
+  const hh = D.tankH / 2;
   const xs = stations.map(st => mapX(st.x));
-  // Actual 3D gap between this group's own tanks — must track their real
-  // tank-to-tank spacing (which now varies with overall tank count) rather
-  // than the fixed SPACING constant, so the shell and its chamber dividers
-  // line up with where the tanks actually render.
   const gap3D    = xs.length > 1 ? xs[1] - xs[0] : tankW + 0.1;
   const shellX1  = xs[0] - gap3D / 2;
   const shellX2  = xs[xs.length - 1] + gap3D / 2;
   const shellW   = shellX2 - shellX1;
   const cx       = (shellX1 + shellX2) / 2;
-  const hw       = shellW / 2;
-  const chamberW = gap3D - 0.06; // leaves room for the divider on each side
+  const chamberW = gap3D - WALL_T - 0.01;
+  const anyActive = stations.some(st => st.isActive);
 
   return (
     <group position={[cx, hh + TANK_LEG_H, z]}>
-      {/* Support legs — one pair per chamber (plus the two outer corners),
-          so a long merged shell still reads as resting on a leg row rather
-          than floating or sitting flush on the ground. */}
-      {xs.map((lx, i) => (
-        <group key={i}>
-          {[-1, 1].map(sz => (
-            <mesh key={sz} position={[lx - cx, -hh - TANK_LEG_H / 2, sz * hd * 0.85]}>
-              <boxGeometry args={[TANK_LEG_S, TANK_LEG_H, TANK_LEG_S]} />{STEEL}
-            </mesh>
-          ))}
-        </group>
-      ))}
+      <TankShell width={shellW} active={anyActive} />
 
-      {/* Dark floor spanning the whole shell */}
-      <mesh position={[0, -hh + 0.01, 0]}>
-        <boxGeometry args={[shellW - 0.04, 0.04, D.tankD - 0.04]} />
-        <meshStandardMaterial color="#060A10" roughness={0.9} metalness={0.1} />
-      </mesh>
-
-      {/* Dark inner back wall */}
-      <mesh position={[0, 0, -hd + 0.012]}>
-        <planeGeometry args={[shellW - 0.04, D.tankH - 0.04]} />
-        <meshStandardMaterial color="#04080E" roughness={0.9} side={2} />
-      </mesh>
-
-      {/* Per-chamber chemical fill + load item + number label */}
       {stations.map((st, i) => {
         const localX = xs[i] - cx;
-        const { chemH, chemY, loadItemY } = tankFillGeometry(st, loadType);
-        const chem = TANK_PALETTE[i % TANK_PALETTE.length];
-        const tooltipName = tankTags[st.id]?.label || st.label;
-        const tooltipLines = [tooltipName, ...(stationParamValues[st.id] || []).map(p => `${p.label}: ${p.value}${p.unit ? ' ' + p.unit : ''}`)];
-        const worldX = cx + localX;
-        const worldY = (hh + TANK_LEG_H) + hh + 0.6; // same offset as a solo Tank3D's tooltip
-        const handlePointerOver = e => { e.stopPropagation(); onHover?.({ x: worldX, y: worldY, z, lines: tooltipLines }); };
+        const look = processLook(tankTags[st.id]?.label, i);
+        const worldY = (hh + TANK_LEG_H) + hh + 0.6;
+        const handlePointerOver = e => { e.stopPropagation(); onHover?.({ x: cx + localX, y: worldY, z, lines: tooltipLinesFor(st, tankTags, stationParamValues) }); };
         const handlePointerOut  = e => { e.stopPropagation(); onHover?.(null); };
         return (
           <group key={st.id} position={[localX, 0, 0]}>
-            {/* Invisible per-chamber hitbox — same flicker-avoidance as a
-                solo Tank3D, scoped to just this chamber's own width */}
             <mesh onPointerOver={handlePointerOver} onPointerOut={handlePointerOut}>
               <boxGeometry args={[chamberW, D.tankH, D.tankD]} />
               <meshBasicMaterial transparent opacity={0} depthWrite={false} />
             </mesh>
-            <mesh position={[0, chemY, 0]}>
-              <boxGeometry args={[chamberW - 0.06, chemH, D.tankD - 0.08]} />
-              <meshStandardMaterial color={chem.fill} transparent opacity={0.58}
-                roughness={0.05} depthWrite={false}
-                emissive={chem.emissive} emissiveIntensity={st.isActive ? 0.55 : 0.30} />
-            </mesh>
-            {st.hasLoad && (
-              <RotatingGroup position={[0, loadItemY, 0]} scale={[1.4, 1.4, 1.4]}>
-                <Load3D type={loadType} shade />
-              </RotatingGroup>
-            )}
-            <Label3D text={st.label} offsetY={hh + 0.24} />
+            <TankContents st={st} width={chamberW - 0.01} look={look} loadType={loadType} />
+            <group position={[0, 0, D.tankD / 2 + 0.42]}>
+              <Label3D text={st.label} offsetY={-hh - TANK_LEG_H + 0.06} color={st.hasLoad ? '#F2A900' : '#7D8793'} scaleX={0.042} scaleY={0.0148} />
+            </group>
           </group>
         );
       })}
 
-      {/* Internal partition dividers between chambers */}
+      {/* Chamber divider walls */}
       {stations.slice(1).map((st, i) => (
-        <mesh key={st.id} position={[(xs[i] + xs[i + 1]) / 2 - cx, 0, 0]}>
-          <boxGeometry args={[0.035, D.tankH - 0.05, D.tankD - 0.05]} />
-          <meshStandardMaterial color="#3A4552" roughness={0.4} metalness={0.4} />
-        </mesh>
-      ))}
-
-      {/* 4 transparent outer walls spanning the whole shell — no top face */}
-      {[
-        { p: [0, 0,  hd], r: [0, 0,          0], w: shellW,   h: D.tankH },
-        { p: [0, 0, -hd], r: [0, Math.PI,     0], w: shellW,   h: D.tankH },
-        { p: [-hw, 0, 0], r: [0, -Math.PI / 2, 0], w: D.tankD, h: D.tankH },
-        { p: [ hw, 0, 0], r: [0,  Math.PI / 2, 0], w: D.tankD, h: D.tankH },
-      ].map(({ p, r, w, h }, i) => (
-        <mesh key={i} position={p} rotation={r} renderOrder={1}>
-          <planeGeometry args={[w, h]} />
-          <meshStandardMaterial
-            color="#C8D4E0" transparent opacity={0.18}
-            roughness={0.04} side={2} depthWrite={false}
-          />
-        </mesh>
-      ))}
-
-      {/* Outer corner posts — 4 total for the whole shell, not per chamber */}
-      {[[-1,-1],[-1,1],[1,-1],[1,1]].map(([sx,sz], i) => (
-        <mesh key={i} position={[sx * hw, 0, sz * hd]}>
-          <boxGeometry args={[0.026, D.tankH, 0.026]} />
-          <meshStandardMaterial color="#FFB300" roughness={0.20} metalness={0.55}
-            emissive="#FF8800" emissiveIntensity={0.45} />
-        </mesh>
-      ))}
-
-      {/* Perimeter top frame */}
-      {[hd, -hd].map((zp, i) => (
-        <mesh key={i} position={[0, hh, zp]}>
-          <boxGeometry args={[shellW + 0.03, 0.030, 0.030]} />
-          <meshStandardMaterial color="#FFB300" roughness={0.18} metalness={0.55}
-            emissive="#FF8800" emissiveIntensity={0.50} />
-        </mesh>
-      ))}
-      {[-hw, hw].map((xp, i) => (
-        <mesh key={i} position={[xp, hh, 0]}>
-          <boxGeometry args={[0.030, 0.030, D.tankD - 0.026]} />
-          <meshStandardMaterial color="#FFB300" roughness={0.18} metalness={0.55}
-            emissive="#FF8800" emissiveIntensity={0.50} />
+        <mesh key={st.id} position={[(xs[i] + xs[i + 1]) / 2 - cx, -0.01, 0]} renderOrder={2}>
+          <boxGeometry args={[WALL_T, D.tankH - 0.02, D.tankD - 2 * WALL_T]} />{TANK_GLASS}
         </mesh>
       ))}
     </group>
   );
 }
 
-// ── Rail ──────────────────────────────────────────────────────────────────────
-function Rail3D({ len: tankSpan, xStart = 0, z }) {
-  const len = tankSpan + 4.4;
-  const cx  = xStart - 2.2 + len / 2;
+// ── Runway ─ twin I-beam crane runway on steel columns ───────────────────────
+// The wagon is a bridge hoist running on two rails either side of the tank
+// row (z = ±RAIL_Z), so the hoist and its load travel freely down the middle.
+const RAIL_Z   = 0.80;
+const RAIL_TOP = 0.1125;                    // rail-head top, above D.railY
+
+function IBeam({ len, y, z }) {
   return (
-    <group>
-      <mesh position={[cx, D.railY, z]}><boxGeometry args={[len, D.railH, D.railW]} />{STEEL}</mesh>
-      <mesh position={[cx, D.railY + D.railH / 2 + 0.012, z]}>
-        <boxGeometry args={[len, 0.024, D.railW * 0.65]} />
-        <meshStandardMaterial color="#FFB300" roughness={0.2} metalness={0.5} emissive="#FF8C00" emissiveIntensity={0.15} />
-      </mesh>
+    <group position={[0, y, z]}>
+      <mesh position={[0, -0.07, 0]}><boxGeometry args={[len, 0.025, 0.16]} />{NAVY}</mesh>
+      <mesh><boxGeometry args={[len, 0.115, 0.025]} />{NAVY}</mesh>
+      <mesh position={[0, 0.07, 0]}><boxGeometry args={[len, 0.025, 0.16]} />{NAVY}</mesh>
+      <mesh position={[0, 0.0975, 0]}><boxGeometry args={[len, 0.03, 0.045]} />{RAIL_HEAD}</mesh>
     </group>
   );
 }
 
-// ── Gantry portal — red truss frame with gold X-bracing (matches the plant's
-// reference SCADA screen: red portal cranes with diagonal gold lattice near
-// the top, on steel base plates) ─────────────────────────────────────────────
-function GantryPortal3D({ x, z, h = 3.80 }) {
-  const span   = 1.7;
-  const legT   = 0.13;
-  const braceH = 1.05;                                   // vertical span the X-brace covers
-  const braceLen = Math.sqrt(span * span + braceH * braceH);
-  const braceAngle = Math.atan2(span, braceH);
-  const braceY = h - braceH / 2 - 0.10;
+// Solid steel H-column from the floor up to the underside of a runway beam.
+function RunwayColumn({ x, z, h }) {
   return (
     <group position={[x, 0, z]}>
-      {/* Main legs */}
-      {[-1, 1].map(s => (
-        <mesh key={s} position={[0, h / 2, s * span / 2]}>
-          <boxGeometry args={[legT, h, legT]} />{RED}
-        </mesh>
+      <mesh position={[0, 0.02, 0]}><boxGeometry args={[0.32, 0.04, 0.32]} />{DARK_STEEL}</mesh>
+      {/* Anchor bolts */}
+      {[[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([bx, bz]) => (
+        <mesh key={`${bx}${bz}`} position={[bx * 0.11, 0.055, bz * 0.11]}><cylinderGeometry args={[0.014, 0.014, 0.03, 6]} />{STEEL}</mesh>
       ))}
-      {/* Top beam */}
-      <mesh position={[0, h, 0]}><boxGeometry args={[legT, legT, span + legT]} />{RED}</mesh>
-      {/* Gold diagonal X-bracing between the legs, near the top */}
-      <mesh position={[0, braceY, 0]} rotation={[braceAngle, 0, 0]}>
-        <boxGeometry args={[0.05, braceLen, 0.05]} />{GOLD}
-      </mesh>
-      <mesh position={[0, braceY, 0]} rotation={[-braceAngle, 0, 0]}>
-        <boxGeometry args={[0.05, braceLen, 0.05]} />{GOLD}
-      </mesh>
-      {/* Steel base plates */}
+      {/* H-section: two flanges + web */}
       {[-1, 1].map(s => (
-        <mesh key={s} position={[0, 0.03, s * span / 2]}>
-          <boxGeometry args={[0.30, 0.06, 0.30]} />{STEEL}
+        <mesh key={s} position={[s * 0.06, h / 2, 0]}><boxGeometry args={[0.022, h, 0.15]} />{NAVY}</mesh>
+      ))}
+      <mesh position={[0, h / 2, 0]}><boxGeometry args={[0.12, h, 0.02]} />{NAVY}</mesh>
+      {/* Cap plate the runway beam sits on */}
+      <mesh position={[0, h + 0.012, 0]}><boxGeometry args={[0.24, 0.024, 0.24]} />{DARK_STEEL}</mesh>
+    </group>
+  );
+}
+
+// End frame: a column under each rail, a cross-beam tying them together just
+// under the rails, and X-bracing in the frame — the runway rests on one of
+// these at each end of the line. Sits beyond the wagons' travel, so the
+// hoist never reaches it.
+function RunwayEndFrame({ x, z, h }) {
+  const span = RAIL_Z * 2;
+  const braceH = h * 0.62, braceY = 0.35 + braceH / 2;
+  const braceLen = Math.hypot(span, braceH), braceAng = Math.atan2(span, braceH);
+  return (
+    <group>
+      {[-1, 1].map(sz => <RunwayColumn key={sz} x={x} z={z + sz * RAIL_Z} h={h} />)}
+      {/* Cross-beam under the rails */}
+      <mesh position={[x, h - 0.08, z]}><boxGeometry args={[0.14, 0.16, span + 0.15]} />{NAVY}</mesh>
+      {/* Lower tie */}
+      <mesh position={[x, 0.35, z]}><boxGeometry args={[0.08, 0.08, span]} />{NAVY}</mesh>
+      {/* X-bracing */}
+      {[1, -1].map(d => (
+        <mesh key={d} position={[x, braceY, z]} rotation={[d * braceAng, 0, 0]}>
+          <boxGeometry args={[0.04, braceLen, 0.04]} />{NAVY}
         </mesh>
       ))}
     </group>
   );
 }
+
+const Runway3D = memo(function Runway3D({ len: tankSpan, xStart = 0, z, label }) {
+  const len = tankSpan + 4.4;
+  const cx  = xStart - 2.2 + len / 2;
+  const colH = D.railY - 0.0825;            // up to the beam's bottom flange
+  const ends = [cx - len / 2 + 0.25, cx + len / 2 - 0.25];
+  return (
+    <group>
+      {[-1, 1].map(sz => (
+        <group key={sz}>
+          <group position={[cx, 0, 0]}><IBeam len={len} y={D.railY} z={z + sz * RAIL_Z} /></group>
+          {/* End stops, inboard of the end frames */}
+          {[-1, 1].map(e => (
+            <mesh key={`e${e}`} position={[cx + e * (len / 2 - 0.55), D.railY + RAIL_TOP + 0.07, z + sz * RAIL_Z]}>
+              <boxGeometry args={[0.1, 0.14, 0.18]} />{HAZARD()}
+            </mesh>
+          ))}
+        </group>
+      ))}
+      {ends.map(x => <RunwayEndFrame key={x} x={x} z={z} h={colH} />)}
+      {/* Line sign above the home end of the runway */}
+      {label && (
+        <group position={[ends[0], 0, z]}>
+          <Label3D text={label} offsetY={D.railY + 1.15} color="#14A3AE" scaleX={0.1} />
+        </group>
+      )}
+    </group>
+  );
+});
 
 // ── Arm direction arrows — 3 chasing cones, UP or DOWN ──────────────────────
 function ArmArrows3D({ direction }) {
@@ -790,150 +854,190 @@ function ArmArrows3D({ direction }) {
   );
 }
 
-// ── Wagon — two Z-side arms, load at mid-wagon during transit ────────────────
+// ── Wagon ─ bridge hoist on the twin runway ───────────────────────────────────
+// End carriages ride the two rails; twin girders span between them and carry
+// the hoist unit. A braced lifting frame hangs below, and the load hangs on
+// wire ropes from a carrier bar. Arm extension / carried-load / mode logic is
+// unchanged — only how it's drawn.
+const WAGON_FRAME_X = 0.36;
+const WAGON_FRAME_Z = 0.30;
+
 function Wagon3D({ wagon, z, loadType = 'barrel' }) {
   const x     = mapX(wagon.x);
-  const hasLd = wagon.loadPercent > 0;   // barrel visible for full dip/lift cycle
+  const hasLd = wagon.loadPercent > 0;   // load visible for full dip/lift cycle
   const isArm = wagon.armExtension > 0.02;
-  const led   = C.statusColors[wagon.status] || '#546E7A';
-  const legCY = D.bodyY - D.bodyH / 2 - D.legH / 2;
+  const led   = C.statusColors[wagon.status] || '#7D8793';
 
-  const modeColor  = wagon.mode && MODE_COLOR[wagon.mode];
-  const blinkOn     = Math.floor(Date.now() / 450) % 2 === 0; // ~450ms blink period
-  const labelText   = `W-${wagon.id}` + (wagon.mode ? `-${MODE_SUFFIX[wagon.mode]}` : '');
+  const modeColor = wagon.mode && MODE_COLOR[wagon.mode];
+  const blinkOn   = Math.floor(Date.now() / 450) % 2 === 0; // ~450ms blink period
+  const labelText = `W-${wagon.id}` + (wagon.mode ? `-${MODE_SUFFIX[wagon.mode]}` : '');
 
-  // Arms: full extension when dipping; fixed length so barrel sits at mid-wagon during transit
-  const armLen     = isArm ? wagon.armExtension * D.maxArm : (hasLd ? ARM_TOP_Y - BARREL_TRANSIT_Y : 0);
-  const armBotY    = ARM_TOP_Y - armLen;
-  const armMidY    = ARM_TOP_Y - armLen / 2;
-  const showArm    = armLen > 0.01;
-  const armZ       = BARREL_L / 2;
+  const carriageY  = D.railY + RAIL_TOP + 0.09;               // carriages sit on the rail heads
+  const frameTopY  = carriageY - 0.06;
+  const frameBotY  = D.bodyY - D.bodyH / 2 - D.legH;          // ≈ 1.62 — bottom tie of the lifting frame
+  const frameH     = frameTopY - frameBotY;
+
+  // Hook height: dipping → follows arm extension; carrying → transit height;
+  // otherwise the empty carrier bar parks just under the hoist.
+  const armLen  = isArm ? wagon.armExtension * D.maxArm : (hasLd ? ARM_TOP_Y - BARREL_TRANSIT_Y : 0);
+  const armBotY = ARM_TOP_Y - armLen;
+  const showArm = armLen > 0.01;
+  const barY    = showArm ? armBotY + 0.36 : frameBotY + 0.25;   // carrier bar height
+  const ropeTop = carriageY + 0.05;
+  const ropeLen = ropeTop - barY;
 
   return (
     <group position={[x, 0, z]}>
-      {/* 4 suspension legs */}
-      {[[-1,-1],[-1,1],[1,-1],[1,1]].map(([sx,sz], i) => (
-        <mesh key={i} position={[sx * D.bodyW * 0.39, legCY, sz * D.bodyD * 0.34]}>
-          <boxGeometry args={[D.legS, D.legH, D.legS]} />{YELLOW}
+      {/* End carriages with wheels, one on each rail */}
+      {[-1, 1].map(sz => (
+        <group key={sz} position={[0, carriageY, sz * RAIL_Z]}>
+          <mesh><boxGeometry args={[0.92, 0.15, 0.17]} />{YELLOW}</mesh>
+          {[-0.31, 0.31].map(wx => (
+            <mesh key={wx} position={[wx, -0.075, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.06, 0.06, 0.07, 16]} />{RUBBER}
+            </mesh>
+          ))}
+          {[-1, 1].map(e => (
+            <mesh key={`b${e}`} position={[e * 0.49, 0, 0]}><boxGeometry args={[0.06, 0.09, 0.1]} />{RUBBER}</mesh>
+          ))}
+        </group>
+      ))}
+
+      {/* Twin bridge girders */}
+      {[-0.25, 0.25].map(gx => (
+        <mesh key={gx} position={[gx, carriageY + 0.02, 0]}>
+          <boxGeometry args={[0.1, 0.18, RAIL_Z * 2 + 0.17]} />{YELLOW}
         </mesh>
       ))}
-      {/* Rail clamp */}
-      <mesh position={[0, D.railY, 0]}>
-        <boxGeometry args={[D.bodyW * 0.84, D.railH + 0.07, D.railW + 0.10]} />{YELLOW}
-      </mesh>
-      {/* Body base (dark) */}
-      <mesh position={[0, D.bodyY - D.bodyH * 0.10, 0]}>
-        <boxGeometry args={[D.bodyW, D.bodyH * 0.75, D.bodyD]} />{NAVY}
-      </mesh>
-      {/* Hazard stripe band — yellow/black diagonal, standard construction style */}
-      <mesh position={[0, D.bodyY + D.bodyH * 0.32, 0]}>
-        <boxGeometry args={[D.bodyW + 0.004, D.bodyH * 0.32, D.bodyD + 0.004]} />
-        <meshStandardMaterial map={hazardTex()} roughness={0.65} metalness={0.08} />
-      </mesh>
-      {/* Status LED */}
-      <mesh position={[D.bodyW / 2 - 0.10, D.bodyY + 0.09, D.bodyD / 2 + 0.012]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.040, 0.040, 0.013, 8]} />
-        <meshStandardMaterial color={led} emissive={led} emissiveIntensity={2.2} roughness={0.1} />
-      </mesh>
-      {/* Wagon work light — illuminates nearby tanks, follows wagon movement */}
-      <pointLight position={[0, D.bodyY - D.bodyH, 0]} color={led} intensity={1.4} distance={5.5} decay={2} />
 
-      {/* Mode indicator — gray mounting panel on the wagon's top side with a
-          blinking LED colored by its active Auto/Manual/Service tag (Wagon
-          Tags page's "WAGON MODE TAG CONFIGURATION" section). Dim/unlit
-          when no mode tag has reported yet. */}
-      <mesh position={[0, D.railY + 0.095, 0]}>
-        <boxGeometry args={[0.10, 0.03, 0.10]} />{GRAY_PANEL}
-      </mesh>
-      <mesh position={[0, D.railY + 0.117, 0]}>
-        <cylinderGeometry args={[0.028, 0.028, 0.022, 10]} />
-        <meshStandardMaterial
-          color={modeColor || '#3A4248'}
-          emissive={modeColor || '#000000'}
-          emissiveIntensity={modeColor ? (blinkOn ? 2.6 : 0.25) : 0}
-          roughness={0.2}
-        />
-      </mesh>
+      {/* Hoist unit: drum housing, motor, brake */}
+      <group position={[0, carriageY + 0.22, -0.05]}>
+        <mesh><boxGeometry args={[0.46, 0.24, 0.5]} />{GRAY_PANEL}</mesh>
+        <mesh position={[0, 0.13, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.1, 0.1, 0.42, 18]} />{DARK_STEEL}
+        </mesh>
+        <mesh position={[0, 0.01, 0.38]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.095, 0.095, 0.26, 18]} />{GRAY_PANEL}
+        </mesh>
+        <mesh position={[0, 0.01, 0.52]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.1, 0.1, 0.03, 18]} />{DARK_STEEL}
+        </mesh>
+        {/* Mode beacon on top — Auto/Manual/Service colour, blinking */}
+        <mesh position={[0.14, 0.17, -0.14]}><cylinderGeometry args={[0.045, 0.05, 0.05, 12]} />{DARK_STEEL}</mesh>
+        <mesh position={[0.14, 0.225, -0.14]}>
+          <cylinderGeometry args={[0.04, 0.04, 0.07, 14]} />
+          <meshStandardMaterial
+            color={modeColor || '#3A4248'} transparent opacity={0.92}
+            emissive={modeColor || '#000000'}
+            emissiveIntensity={modeColor ? (blinkOn ? 3 : 0.3) : 0}
+            roughness={0.2}
+          />
+        </mesh>
+      </group>
 
-      <Label3D text={labelText} offsetY={D.bodyY + D.bodyH / 2 + 0.28} color="#00C8FF" scaleX={0.078} />
+      {/* Control box on the front carriage — status + mode LEDs */}
+      <group position={[0.24, carriageY + 0.02, RAIL_Z + 0.14]}>
+        <mesh><boxGeometry args={[0.24, 0.22, 0.08]} /><meshStandardMaterial color="#D3D8DC" roughness={0.5} metalness={0.1} /></mesh>
+        <mesh position={[-0.05, 0.04, 0.045]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.028, 0.028, 0.012, 12]} />
+          <meshStandardMaterial color={led} emissive={led} emissiveIntensity={2.2} roughness={0.1} />
+        </mesh>
+        <mesh position={[0.05, 0.04, 0.045]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.028, 0.028, 0.012, 12]} />
+          <meshStandardMaterial color={modeColor || '#3A4248'} emissive={modeColor || '#000'}
+            emissiveIntensity={modeColor ? (blinkOn ? 2.6 : 0.25) : 0} roughness={0.1} />
+        </mesh>
+      </group>
 
-      {/* Arm + load — style depends on load type */}
+      {/* Work light under the bridge — lights the tank being served */}
+      <pointLight position={[0, frameBotY - 0.1, 0]} color="#FFE8C4" intensity={1.3} distance={4.5} decay={2} />
+
+      {/* Lifting frame: 4 guide posts, top + bottom ties, side bracing */}
+      {[[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([sx, sz], i) => (
+        <mesh key={i} position={[sx * WAGON_FRAME_X, frameBotY + frameH / 2, sz * WAGON_FRAME_Z]}>
+          <boxGeometry args={[0.06, frameH, 0.06]} />{YELLOW}
+        </mesh>
+      ))}
+      {[-1, 1].map(sz => (
+        <mesh key={`tb${sz}`} position={[0, frameBotY, sz * WAGON_FRAME_Z]}>
+          <boxGeometry args={[WAGON_FRAME_X * 2 + 0.06, 0.07, 0.06]} />{HAZARD()}
+        </mesh>
+      ))}
+      {[-1, 1].map(sx => (
+        <mesh key={`ts${sx}`} position={[sx * WAGON_FRAME_X, frameBotY, 0]}>
+          <boxGeometry args={[0.06, 0.07, WAGON_FRAME_Z * 2]} />{YELLOW}
+        </mesh>
+      ))}
+      {[-1, 1].map(sx => (
+        <mesh key={`br${sx}`} position={[sx * WAGON_FRAME_X, frameBotY + frameH / 2, 0]}
+          rotation={[Math.atan2(WAGON_FRAME_Z * 2, frameH), 0, 0]}>
+          <boxGeometry args={[0.03, Math.hypot(frameH, WAGON_FRAME_Z * 2), 0.03]} />{YELLOW}
+        </mesh>
+      ))}
+
+      <Label3D text={labelText} offsetY={carriageY + 0.72} color={modeColor || '#14A3AE'} scaleX={0.078} />
+
+      {/* Wire ropes + carrier bar */}
+      {[-0.12, 0.12].map(rz => (
+        <mesh key={rz} position={[0, barY + ropeLen / 2, rz]}>
+          <cylinderGeometry args={[0.008, 0.008, ropeLen, 6]} />{CABLE}
+        </mesh>
+      ))}
+      <mesh position={[0, barY, 0]}><boxGeometry args={[0.07, 0.07, 1.08]} />{YELLOW}</mesh>
+
       {showArm && loadType === 'basket' ? (
         // ── 3-finger claw gripper for cylindrical basket ─────────────────────
         (() => {
-          // Fingers attach at a collar just below the arm; basket hangs inside
           const collarY    = armBotY + 0.08;
-          const basketCY   = collarY - BASKET_H / 2 - 0.02; // basket centre
-          const GRIP_R     = BASKET_R + 0.04;                // finger reach radius
-          const PRONG_LEN  = BASKET_H * 0.60;                // finger height
+          const basketCY   = collarY - BASKET_H / 2 - 0.02;
+          const GRIP_R     = BASKET_R + 0.04;
+          const PRONG_LEN  = BASKET_H * 0.60;
           const prongMidY  = collarY - PRONG_LEN / 2;
-          // Three.js Ry(θ): local +X → world [cos θ, 0, −sin θ]
-          // To aim at world direction [sin rad, 0, cos rad] → ry = rad − π/2
           const ANGLES = [0, 2 * Math.PI / 3, 4 * Math.PI / 3];
           return (
             <>
-              {/* Central rod */}
-              <mesh position={[0, armMidY, 0]}>
-                <cylinderGeometry args={[0.016, 0.016, armLen, 8]} />
-                {STEEL}
+              <mesh position={[0, (barY + collarY) / 2, 0]}>
+                <cylinderGeometry args={[0.016, 0.016, barY - collarY, 8]} />{STEEL}
               </mesh>
-              {/* Collar ring */}
               <mesh position={[0, collarY, 0]}>
-                <cylinderGeometry args={[0.036, 0.036, 0.020, 10]} />
-                {STEEL}
+                <cylinderGeometry args={[0.036, 0.036, 0.020, 10]} />{STEEL}
               </mesh>
-              {/* 3 fingers: horizontal reach + vertical prong */}
               {ANGLES.map((rad, i) => {
                 const fx = Math.sin(rad) * GRIP_R;
                 const fz = Math.cos(rad) * GRIP_R;
                 const ry = rad - Math.PI / 2;
                 return (
                   <group key={i}>
-                    {/* Horizontal reach arm from collar centre */}
                     <mesh position={[fx / 2, collarY, fz / 2]} rotation={[0, ry, 0]}>
-                      <boxGeometry args={[GRIP_R, 0.013, 0.013]} />
-                      {STEEL}
+                      <boxGeometry args={[GRIP_R, 0.013, 0.013]} />{STEEL}
                     </mesh>
-                    {/* Vertical prong going down beside basket wall */}
                     <mesh position={[fx, prongMidY, fz]}>
-                      <boxGeometry args={[0.013, PRONG_LEN, 0.013]} />
-                      {STEEL}
+                      <boxGeometry args={[0.013, PRONG_LEN, 0.013]} />{STEEL}
                     </mesh>
                   </group>
                 );
               })}
-              {/* Basket hanging inside the claw — scaled up so a carried
-                  load reads clearly against the wagon, without touching the
-                  shared Load3D/Basket3D geometry used elsewhere (tanks), and
-                  continuously rotating. */}
-              <RotatingGroup position={[0, basketCY, 0]} scale={[1.5, 1.5, 1.5]}>
-                <Load3D type="basket" shade={false} />
-              </RotatingGroup>
+              {hasLd && (
+                <RotatingGroup position={[0, basketCY, 0]} scale={[1.5, 1.5, 1.5]}>
+                  <Load3D type="basket" shade={false} />
+                </RotatingGroup>
+              )}
             </>
           );
         })()
       ) : showArm ? (
-        // ── Standard 2-arm spreader for barrel / rack ────────────────────────
+        // ── Hanger plates for barrel / rack ──────────────────────────────────
         <>
-          {/* Spreader beam at arm tops */}
-          <mesh position={[0, ARM_TOP_Y, 0]}>
-            <boxGeometry args={[0.034, 0.034, BARREL_L + 0.10]} />{STEEL}
-          </mesh>
-          {/* Left arm */}
-          <mesh position={[0, armMidY,  armZ]}>
-            <boxGeometry args={[0.020, armLen, 0.020]} />{STEEL}
-          </mesh>
-          {/* Right arm */}
-          <mesh position={[0, armMidY, -armZ]}>
-            <boxGeometry args={[0.020, armLen, 0.020]} />{STEEL}
-          </mesh>
-          {/* Load (barrel / rack) — scaled up so a carried load reads
-              clearly against the wagon, without touching the shared
-              Load3D/Barrel3D geometry used elsewhere (tanks), and
-              continuously rotating. */}
-          <RotatingGroup position={[0, armBotY, 0]} scale={[1.5, 1.5, 1.5]}>
-            <Load3D type={loadType} shade={false} />
-          </RotatingGroup>
+          {[-1, 1].map(sz => (
+            <mesh key={sz} position={[0, (barY + armBotY) / 2, sz * 0.5]}>
+              <boxGeometry args={[0.07, barY - armBotY, 0.025]} />{YELLOW}
+            </mesh>
+          ))}
+          {hasLd && (
+            <RotatingGroup position={[0, armBotY, 0]} scale={[1.5, 1.5, 1.5]}>
+              <Load3D type={loadType} shade={false} />
+            </RotatingGroup>
+          )}
         </>
       ) : null}
 
@@ -1034,14 +1138,15 @@ function DPadBtn({ label, dir, extKeysRef }) {
       onTouchStart={e => { e.preventDefault(); press(); }} onTouchEnd={release}
       style={{
         width: 40, height: 40,
-        background: active ? '#1565C0' : '#F0F2F6',
-        border: `1px solid ${active ? '#1565C0' : '#C4C8D4'}`,
-        borderRadius: 5, color: active ? '#FFFFFF' : '#3A4F6A',
+        background: active ? THEME.accent : 'rgba(22,27,34,0.82)',
+        border: `1px solid ${active ? THEME.accent : 'rgba(255,255,255,0.14)'}`,
+        borderRadius: 8, color: '#FFFFFF',
         fontSize: 16, cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         userSelect: 'none', WebkitUserSelect: 'none',
         transition: 'background 0.08s, border-color 0.08s, color 0.08s',
-        boxShadow: active ? '0 0 8px #1565C044' : 'none',
+        boxShadow: active ? `0 0 10px ${THEME.accent}88` : '0 2px 6px rgba(0,0,0,0.3)',
+        backdropFilter: 'blur(4px)',
       }}
     >{label}</button>
   );
@@ -1077,14 +1182,96 @@ function CrossTrolley3D({ x1, z1, x2, z2 }) {
       {/* Trolley car sliding along it — widened to match */}
       <mesh ref={carRef} position={[x1, y + 0.21, z1]}>
         <boxGeometry args={[0.46, 0.29, 0.46]} />
-        <meshStandardMaterial color="#B71C1C" roughness={0.35} metalness={0.4}
-          emissive="#600000" emissiveIntensity={0.25} />
+        <meshStandardMaterial color="#E8A80C" roughness={0.45} metalness={0.35} />
       </mesh>
       <group position={[midX, 0, midZ]}>
-        <Label3D text="X-TROLLEY" offsetY={y + 0.34} color="#FFD740" scaleX={0.11} />
+        <Label3D text="X-TROLLEY" offsetY={y + 0.34} color="#F2A900" scaleX={0.11} />
       </group>
     </group>
   );
+}
+
+// ── Plant floor + building shell ────────────────────────────────────────────
+// Polished concrete slab, a raised concrete plinth under each tank row, green
+// epoxy walkways with yellow safety lines between/in front of the rows, and
+// the building's clad back wall with steel columns and a high window band.
+const PlantFloor = memo(function PlantFloor({ cx, cz, groundW, groundZ, lineCount }) {
+  const W = groundW + 60, Dp = groundZ + 30;
+  const floor = floorTex();
+  floor.repeat.set(W / 6, Dp / 6);
+  const firstZ = trkZ(0), lastZ = trkZ(lineCount - 1);
+  const lines = Array.from({ length: lineCount }, (_, i) => i);
+  const wallZ  = firstZ - 3.4;
+  const plinthW = groundW - 2;
+  const aisles = [];
+  for (let i = 0; i < lineCount - 1; i++) aisles.push([trkZ(i) + 1.2, trkZ(i + 1) - 1.2]);
+  aisles.push([lastZ + 1.2, lastZ + 3.4]);                              // front walkway
+  const cladding = wallTex();
+  cladding.repeat.set((groundW + 30) / 1.2, 1);
+
+  return (
+    <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0, cz]}>
+        <planeGeometry args={[W, Dp]} />
+        <meshStandardMaterial map={floor} roughness={0.55} metalness={0.05} />
+      </mesh>
+
+      {/* Tank-row plinths */}
+      {lines.map(idx => (
+        <mesh key={`pl${idx}`} position={[cx, 0.02, trkZ(idx)]}>
+          <boxGeometry args={[plinthW, 0.04, 1.9]} />
+          <meshStandardMaterial color="#6E7477" roughness={0.85} />
+        </mesh>
+      ))}
+
+      {/* Walkways with safety lines */}
+      {aisles.map(([z1, z2], i) => (
+        <group key={`a${i}`}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.004, (z1 + z2) / 2]}>
+            <planeGeometry args={[plinthW, z2 - z1]} />
+            <meshStandardMaterial map={aisleTex()} roughness={0.35} metalness={0.05} />
+          </mesh>
+          {[z1, z2].map(zl => (
+            <mesh key={zl} rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.006, zl]}>
+              <planeGeometry args={[plinthW, 0.08]} />
+              <meshStandardMaterial color="#F2B705" roughness={0.4} emissive="#F2B705" emissiveIntensity={0.08} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      {/* Back wall: dado, cladding, window band */}
+      <mesh position={[cx, 0.7, wallZ]}>
+        <boxGeometry args={[groundW + 30, 1.4, 0.2]} />
+        <meshStandardMaterial color="#5F686F" roughness={0.8} />
+      </mesh>
+      <mesh position={[cx, 3.0, wallZ]}>
+        <planeGeometry args={[groundW + 30, 3.2]} />
+        <meshStandardMaterial map={cladding} roughness={0.6} metalness={0.25} />
+      </mesh>
+      <mesh position={[cx, 4.85, wallZ + 0.02]}>
+        <planeGeometry args={[groundW + 30, 0.5]} />
+        <meshStandardMaterial color="#CFE3EE" emissive="#BFD9E8" emissiveIntensity={0.55} roughness={0.2} />
+      </mesh>
+
+    </group>
+  );
+});
+
+// Places the camera once on load so the whole plant width — every line from
+// end frame to end frame — fits the window, whatever its size/shape.
+function FitCamera({ target, span }) {
+  const { camera, size } = useThree();
+  useEffect(() => {
+    const vHalf = (camera.fov * Math.PI) / 360;
+    const hTan  = Math.tan(vHalf) * (size.width / Math.max(size.height, 1));
+    const dist  = (span / 2) / hTan * 1.08;
+    const dir   = [0, 0.6, 0.8];                          // look down at ~37°
+    camera.position.set(target[0] + dir[0] * dist, target[1] + dir[1] * dist, target[2] + dir[2] * dist);
+    camera.lookAt(...target);
+    camera.updateProjectionMatrix();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps — initial framing only
+  return null;
 }
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
@@ -1110,27 +1297,14 @@ function Scene3D({ wagons, stations, tracks, wagonTypeMap, tankPartitions = [], 
   return (
     <>
       <SceneEnv />
-      {/* Ambient: free uniform fill — no shadow pass, zero lag */}
-      <ambientLight intensity={2.2} color="#D0DCF0" />
-      {/* Hemisphere: sky-to-ground gradient, also free */}
-      <hemisphereLight args={['#4A7ACC', '#1A3050', 1.2]} />
-      {/* Key light: no castShadow → single render pass, no shadow map cost */}
-      <directionalLight position={[cx, 20, 14]} intensity={0.9} color="#FFFFFF" />
-      {/* Soft fill from opposite side for depth */}
-      <directionalLight position={[-6, 8, -8]} intensity={0.35} color="#7AAAD8" />
+      {/* Lighting — no shadow maps (contact shadows are baked textures), so
+          this stays a single cheap render pass */}
+      <ambientLight intensity={1.15} color="#EEF2F5" />
+      <hemisphereLight args={['#DCE5EC', '#4D5357', 1.1]} />
+      <directionalLight position={[cx - 10, 18, cz + 16]} intensity={2.1} color="#FFF3E2" />
+      <directionalLight position={[cx + 14, 9, cz - 10]} intensity={0.55} color="#BFD5E8" />
 
-      {/* Concrete floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0, cz]} >
-        <planeGeometry args={[groundW + 60, groundZ + 30]} />
-        <meshStandardMaterial color="#B0B4AE" roughness={0.92} metalness={0.0} />
-      </mesh>
-      {/* Slightly darker aisle strips under each rail line */}
-      {tracks.map((_, idx) => (
-        <mesh key={idx} rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.001, trkZ(idx)]} >
-          <planeGeometry args={[groundW, 2.2]} />
-          <meshStandardMaterial color="#989890" roughness={0.95} />
-        </mesh>
-      ))}
+      <PlantFloor cx={cx} cz={cz} groundW={groundW} groundZ={groundZ} lineCount={tracks.length} />
 
       {tracks.map((tr, idx) => {
         const z         = trkZ(idx);
@@ -1177,10 +1351,7 @@ function Scene3D({ wagons, stations, tracks, wagonTypeMap, tankPartitions = [], 
 
         return (
           <group key={tr.id}>
-            <Rail3D len={tLen} xStart={xStart} z={z} />
-            <GantryPortal3D x={xStart - 2.4} z={z} />
-            <GantryPortal3D x={xStart + tLen + 2.0} z={z} />
-            {sCount > 18 && <GantryPortal3D x={xStart + tLen / 2} z={z} />}
+            <Runway3D len={tLen} xStart={xStart} z={z} label={tr.label} />
             {validGroups.map(g => (
               <TankGroup3D key={g.id} stations={g.groupStations} z={z} loadType={trackType}
                 tankW={tankW3D} tankTags={tankTags} stationParamValues={stationParamValues} onHover={setHovered} />
@@ -1216,13 +1387,14 @@ function Scene3D({ wagons, stations, tracks, wagonTypeMap, tankPartitions = [], 
         ref={controlsRef}
         target={[cx, 1.3, cz]}
         enableDamping dampingFactor={0.05}
-        minDistance={4} maxDistance={40}
+        minDistance={4} maxDistance={60}
         minPolarAngle={0.28}
         maxPolarAngle={Math.PI * 82 / 180}
         minAzimuthAngle={-Math.PI / 2}
         maxAzimuthAngle={ Math.PI / 2}
       />
       <CameraController controlsRef={controlsRef} extKeysRef={extKeysRef} />
+      <FitCamera target={[cx, 1.3, cz]} span={sceneMaxX - sceneMinX + 6} />
 
       {/* Single shared hover tooltip — one Html mount at a time, not one
           per tank, however many tanks exist */}
@@ -1231,17 +1403,28 @@ function Scene3D({ wagons, stations, tracks, wagonTypeMap, tankPartitions = [], 
           style={{ pointerEvents: 'none' }} distanceFactor={8} zIndexRange={[100, 0]}
         >
           <div style={{
-            background: 'rgba(10,20,34,0.92)', color: '#FFD740',
-            border: '2px solid #FFB300', borderRadius: 8,
-            padding: '10px 18px', fontSize: 19, fontWeight: 700,
-            fontFamily: "'Segoe UI', system-ui, monospace", whiteSpace: 'nowrap',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.5)', transform: 'translateY(-14px)',
+            background: 'rgba(22,27,34,0.95)', color: '#FFFFFF',
+            borderRadius: 10, overflow: 'hidden', whiteSpace: 'nowrap',
+            fontFamily: FONT, boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+            border: '1px solid rgba(255,255,255,0.12)', transform: 'translateY(-14px)',
           }}>
-            {hovered.lines.map((line, i) => (
-              <div key={i} style={i > 0 ? { fontSize: 16, fontWeight: 600, color: '#B9D6E8', marginTop: 4 } : undefined}>
-                {line}
+            <div style={{
+              padding: '9px 18px', fontSize: 20, fontWeight: 700, fontFamily: FONT_COND,
+              letterSpacing: 0.5, borderLeft: `5px solid ${THEME.accent}`, background: 'rgba(255,255,255,0.04)',
+            }}>{hovered.lines[0]}</div>
+            {hovered.lines.length > 1 && (
+              <div style={{ padding: '6px 18px 10px' }}>
+                {hovered.lines.slice(1).map((line, i) => {
+                  const [k, ...v] = line.split(': ');
+                  return (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 26, fontSize: 16, marginTop: 4 }}>
+                      <span style={{ color: '#9AA6B2', fontWeight: 500 }}>{k}</span>
+                      <span style={{ color: '#F2A900', fontWeight: 700 }}>{v.join(': ')}</span>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            )}
           </div>
         </Html>
       )}
@@ -1255,7 +1438,7 @@ function ThreeDPane({ wagons, stations, tracks, wagonTypeMap, tankPartitions, cr
     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
       <Canvas
         shadows
-        camera={{ position: [camX, 20, 24], fov: 48, near: 0.1, far: 500 }}
+        camera={{ position: [camX, 15.5, 20.5], fov: 48, near: 0.1, far: 500 }}
         style={{ background: SKY, width: '100%', height: '100%' }}
         dpr={[1, 1.5]}
       >
@@ -1268,27 +1451,27 @@ function ThreeDPane({ wagons, stations, tracks, wagonTypeMap, tankPartitions, cr
       {/* Controls overlay — bottom lifted to clear the mode-legend bar
           added across the bottom of the main viewport */}
       <div style={{
-        position: 'absolute', bottom: 88, right: 24, zIndex: 10,
+        position: 'absolute', bottom: 70, right: 24, zIndex: 10,
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 2 }}>
           <DPadBtn label="＋" dir="zoomIn"  extKeysRef={extKeysRef} />
-          <div style={{ padding: '0 8px', fontSize: 8, color: '#8090A8', letterSpacing: 1, fontFamily: 'monospace' }}>ZOOM</div>
+          <div style={{ padding: '0 8px', fontSize: 10, color: '#C9D1D9', letterSpacing: 1.5, fontWeight: 700, textShadow: '0 1px 3px #000' }}>ZOOM</div>
           <DPadBtn label="－" dir="zoomOut" extKeysRef={extKeysRef} />
         </div>
-        <div style={{ width: 126, height: 1, background: '#C4C8D4' }} />
+        <div style={{ width: 126, height: 1, background: 'rgba(255,255,255,0.18)' }} />
         <DPadBtn label="▲" dir="up"    extKeysRef={extKeysRef} />
         <div style={{ display: 'flex', gap: 3 }}>
           <DPadBtn label="◀" dir="left"  extKeysRef={extKeysRef} />
           <div style={{
-            width: 40, height: 40, borderRadius: 5,
-            background: '#E8EBF4', border: '1px solid #C4C8D4',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8090A8', fontSize: 14,
+            width: 40, height: 40, borderRadius: 8,
+            background: 'rgba(22,27,34,0.6)', border: '1px solid rgba(255,255,255,0.1)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7D8793', fontSize: 14,
           }}>⊕</div>
           <DPadBtn label="▶" dir="right" extKeysRef={extKeysRef} />
         </div>
         <DPadBtn label="▼" dir="down"  extKeysRef={extKeysRef} />
-        <div style={{ marginTop: 2, fontSize: 8, color: '#8090A8', letterSpacing: 1, fontFamily: 'monospace' }}>ORBIT</div>
+        <div style={{ marginTop: 2, fontSize: 10, color: '#C9D1D9', letterSpacing: 1.5, fontWeight: 700, textShadow: '0 1px 3px #000' }}>ORBIT</div>
       </div>
     </div>
   );
@@ -1334,8 +1517,8 @@ function HeaderBrandCenter({ name, logo }) {
       {nameHasText && (
         <span
           style={{
-            fontSize: 20, fontWeight: 900, color: '#1A2035', letterSpacing: 0.5,
-            whiteSpace: 'nowrap', fontFamily: 'Arial, Helvetica, sans-serif',
+            fontSize: 25, fontWeight: 700, color: THEME.text, letterSpacing: 0.8,
+            whiteSpace: 'nowrap', fontFamily: FONT_COND,
           }}
           dangerouslySetInnerHTML={{ __html: name }}
         />
@@ -1348,19 +1531,16 @@ function HeaderBrandCenter({ name, logo }) {
 function StatusChip({ dot, label, value, valueColor, onClick }) {
   return (
     <div onClick={onClick} style={{
-      display: 'flex', alignItems: 'center', gap: 6,
-      padding: '4px 10px', borderRadius: 4, flexShrink: 0,
-      background: '#F0F2F6', border: '1px solid #C4C8D4',
+      display: 'flex', alignItems: 'center', gap: 8, height: 32,
+      padding: '0 12px', borderRadius: 16, flexShrink: 0,
+      background: THEME.panelAlt, border: `1px solid ${THEME.border}`,
       cursor: onClick ? 'pointer' : 'default', userSelect: 'none',
     }}>
       {dot && (
-        <span style={{
-          width: 8, height: 8, borderRadius: '50%', background: dot,
-          boxShadow: `0 0 5px ${dot}`, flexShrink: 0,
-        }} />
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, boxShadow: `0 0 6px ${dot}`, flexShrink: 0 }} />
       )}
-      <span style={{ fontSize: 8.5, color: '#8090A8', letterSpacing: 1, fontWeight: 700 }}>{label}</span>
-      <span style={{ fontSize: 11, fontWeight: 800, color: valueColor || '#1A2035' }}>{value}</span>
+      <span style={{ fontSize: 10.5, color: THEME.textDim, letterSpacing: 1, fontWeight: 700 }}>{label}</span>
+      {value !== undefined && <span style={{ fontSize: 13, fontWeight: 800, color: valueColor || THEME.text }}>{value}</span>}
     </div>
   );
 }
@@ -1369,11 +1549,12 @@ function StatusChip({ dot, label, value, valueColor, onClick }) {
 const NAV = [
   { type: 'sep', label: 'VIEWS' },
   { id: '3d',            icon: '⬡', label: '3D View'       },
+  { id: 'dairy-3d',      icon: '◈', label: 'Dairy 3D'      },
+  { id: 'dairy-reports', icon: '☷', label: 'Dairy Reports' },
   { id: '2d',            icon: '▦', label: '2D View'       },
-  { id: 'settings',      icon: '☰', label: 'Settings'      },
+  { id: 'settings',      icon: '☰', label: 'Plant Controls' },
   { type: 'sep', label: 'MONITOR' },
-  { id: 'station-info',  icon: '⊡', label: 'Stations'      },
-  { id: 'tags',          icon: '◉', label: 'Tag Monitor'   },
+  { id: 'station-info',  icon: '⊡', label: 'Tank Overview' },
   // Sequence requested: System Config, Tank Partitions, Cross Trolley,
   // Wagon Location Tags, Mimic Page Config, Station Info — labels renamed
   // to match what each page actually configures (was e.g. "Tank Tags" for
@@ -1381,19 +1562,19 @@ const NAV = [
   // mismatch between sidebar label and page title was the main source of
   // "settings feel scattered". Col. Config / General Config aren't part of
   // that requested set — kept, just appended after it.
-  { type: 'sep', label: 'MIMIC SCREEN CONFIGURATION' },
-  { id: 'config',         icon: '⚙', label: 'System Config',        sub: true },
+  { type: 'sep', label: 'CONFIGURATION' },
+  { id: 'config',         icon: '⚙', label: 'Plant Layout',         sub: true },
   { id: 'tank-partitions',icon: '▥', label: 'Tank Partitions',      sub: true },
-  { id: 'cross-trolley',  icon: '⇄', label: 'Cross Trolley',        sub: true },
-  { id: 'wagon-tags',     icon: '⊟', label: 'Wagon Location Tags',  sub: true },
-  { id: 'tags-config',    icon: '⊞', label: 'Mimic Page Config',    sub: true },
-  { id: 'station-names',  icon: '✎', label: 'Station Info',        sub: true },
-  { id: 'station-cols',   icon: '≡', label: 'Col. Config',         sub: true },
-  { id: 'general-config', icon: '⚑', label: 'General Config',      sub: true },
+  { id: 'cross-trolley',  icon: '⇄', label: 'Transfer Links',       sub: true },
+  { id: 'wagon-tags',     icon: '⊟', label: 'Wagon Signals',        sub: true },
+  { id: 'tags-config',    icon: '⊞', label: 'Tank Register',        sub: true },
+  { id: 'station-names',  icon: '✎', label: 'Station Parameters',  sub: true },
+  { id: 'station-cols',   icon: '≡', label: 'Table Columns',       sub: true },
+  { id: 'general-config', icon: '⚑', label: 'Branding',            sub: true },
   { type: 'sep', label: 'DIAGNOSTICS' },
-  { id: 'plc-test',      icon: '⚡', label: 'PLC Connection Test' },
+  { id: 'plc-test',      icon: '⚡', label: 'Connectivity' },
   { type: 'sep', label: 'DEPLOY' },
-  { id: 'app-builder',   icon: '⧉', label: 'App Builder', devOnly: true },
+  { id: 'app-builder',   icon: '⧉', label: 'Package Builder', devOnly: true },
 ];
 
 // Drops nav items the current page selection turns off, PLUS any `devOnly`
@@ -1417,91 +1598,85 @@ function initialView(selection) {
 
 function filterNav(nav, selection, isFrozen) {
   const kept = [];
-  let pendingSep = null;
-  let sepHasItems = false;
+  let pendingSep = null;          // heading waiting for its first visible item
   for (const item of nav) {
-    if (item.type === 'sep') {
-      if (pendingSep && sepHasItems) kept.push(pendingSep);
-      pendingSep = item;
-      sepHasItems = false;
-      continue;
-    }
+    if (item.type === 'sep') { pendingSep = item; continue; }
     if (item.devOnly && isFrozen) continue;
     if (isPageEnabled(selection, `nav:${item.id}`)) {
+      if (pendingSep) { kept.push(pendingSep); pendingSep = null; }
       kept.push(item);
-      sepHasItems = true;
     }
   }
-  if (pendingSep && sepHasItems) kept.push(pendingSep);
   return kept;
 }
 
-const Sidebar = memo(function Sidebar({ view, navigate, expanded, onToggle, nav }) {
-  const FULL = 220, ICON = 52, HIDE = FULL - ICON;
+// Brand mark: an overhead hoist over a process tank, in a rounded teal tile.
+function BrandMark({ size = 36 }) {
   return (
-    <div style={{ width: ICON, minWidth: ICON, flexShrink: 0, position: 'relative', zIndex: 50 }}>
-      {/* When collapsed: invisible overlay makes the whole 64px column clickable to reopen */}
+    <svg width={size} height={size} viewBox="0 0 40 40" style={{ flexShrink: 0, display: 'block' }}>
+      <defs>
+        <linearGradient id="bmTile" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#14A3AE" />
+          <stop offset="1" stopColor="#0A5F67" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="38" height="38" rx="10" fill="url(#bmTile)" />
+      <rect x="7" y="9" width="26" height="3.2" rx="1.6" fill="#FFFFFF" />
+      <rect x="16" y="12" width="8" height="5" rx="1.2" fill="#F2A900" />
+      <line x1="20" y1="17" x2="20" y2="23" stroke="#FFFFFF" strokeWidth="1.6" />
+      <rect x="15.5" y="22.5" width="9" height="4" rx="1" fill="#F2A900" />
+      <path d="M9 21 V31 H31 V21" fill="none" stroke="#FFFFFF" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+      <path d="M11.5 27.5 H28.5" stroke="rgba(255,255,255,0.55)" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const Sidebar = memo(function Sidebar({ view, navigate, expanded, onToggle, nav, sourceLabel, sourceColor }) {
+  const FULL = 232, ICON = 60, HIDE = FULL - ICON;
+  return (
+    <div style={{
+      width: expanded ? FULL : ICON, minWidth: expanded ? FULL : ICON, flexShrink: 0,
+      position: 'relative', zIndex: 50, transition: 'width 0.24s cubic-bezier(0.4,0,0.2,1), min-width 0.24s cubic-bezier(0.4,0,0.2,1)',
+    }}>
+      {/* When collapsed: invisible overlay makes the whole column clickable to reopen */}
       {!expanded && (
-        <div onClick={onToggle} style={{
-          position: 'absolute', inset: 0, zIndex: 51, cursor: 'pointer',
-        }} />
+        <div onClick={onToggle} style={{ position: 'absolute', inset: 0, zIndex: 51, cursor: 'pointer' }} />
       )}
-      {/* 220 px panel — GPU clip-path animates, zero layout impact */}
+      {/* Full-width panel — GPU clip-path animates, zero layout impact */}
       <div style={{
         position: 'absolute', left: 0, top: 0, bottom: 0, width: FULL,
-        background: '#FFFFFF', borderRight: '1px solid #C4C8D4',
-        display: 'flex', flexDirection: 'column',
+        background: THEME.frame, borderRight: `1px solid ${THEME.frameLine}`,
+        display: 'flex', flexDirection: 'column', fontFamily: FONT,
         clipPath: expanded ? `inset(0 0 0 0)` : `inset(0 ${HIDE}px 0 0)`,
         transition: 'clip-path 0.24s cubic-bezier(0.4,0,0.2,1)',
         willChange: 'clip-path',
-        boxShadow: expanded ? '4px 0 20px rgba(21,101,192,0.13)' : 'none',
+        boxShadow: expanded ? '6px 0 24px rgba(0,0,0,0.28)' : 'none',
       }}>
-        {/* ── Logo header ───────────────────────────────── */}
+        {/* ── Brand ─────────────────────────────────────── */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, padding: '10px 10px',
-          background: 'linear-gradient(145deg,#1255A8,#1565C0,#1976D2)',
-          borderBottom: '2px solid #0D47A1', minHeight: 64, flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 11, padding: '0 12px',
+          height: 60, flexShrink: 0, borderBottom: `1px solid ${THEME.frameLine}`,
         }}>
-          <svg width="38" height="38" viewBox="0 0 52 52" style={{ flexShrink: 0 }}>
-            <polygon points="26,2 47,13.5 47,38.5 26,50 5,38.5 5,13.5"
-              fill="rgba(255,255,255,0.08)" stroke="rgba(255,210,80,0.55)" strokeWidth="1.4"/>
-            <rect x="10" y="14" width="3.5" height="16" rx="1.5" fill="#64B5F6"/>
-            <rect x="38.5" y="14" width="3.5" height="16" rx="1.5" fill="#64B5F6"/>
-            <rect x="9" y="12" width="34" height="4" rx="2" fill="#FF9800"/>
-            <rect x="11" y="12.5" width="28" height="1.5" rx="0.75" fill="rgba(255,255,255,0.35)"/>
-            <line x1="26" y1="16" x2="26" y2="25" stroke="#FFD740" strokeWidth="2.2" strokeLinecap="round" strokeDasharray="1.5 2"/>
-            <circle cx="26" cy="26.5" r="2.2" fill="#FFD740" stroke="#F9A825" strokeWidth="1"/>
-            <rect x="13" y="28" width="26" height="11" rx="3" fill="#ECEFF1" stroke="#B0BEC5" strokeWidth="0.8"/>
-            <rect x="16" y="30" width="20" height="5.5" rx="2" fill="#29B6F6"/>
-            <rect x="17.5" y="30.8" width="15" height="1.5" rx="0.75" fill="rgba(255,255,255,0.45)"/>
-            <rect x="4" y="40" width="44" height="3" rx="1.5" fill="#90A4AE"/>
-            <rect x="4" y="40" width="44" height="1" rx="0.5" fill="rgba(255,255,255,0.35)"/>
-            <circle cx="18" cy="40" r="4.5" fill="#37474F" stroke="#FF9800" strokeWidth="2"/>
-            <circle cx="18" cy="40" r="1.6" fill="#FF9800"/>
-            <circle cx="34" cy="40" r="4.5" fill="#37474F" stroke="#FF9800" strokeWidth="2"/>
-            <circle cx="34" cy="40" r="1.6" fill="#FF9800"/>
-          </svg>
-          {/* Text always rendered — clip-path hides it when collapsed */}
-          <div style={{ minWidth: 0, flex: 1, opacity: expanded ? 1 : 0, transition: 'opacity 0.15s' }}>
-            <div style={{ fontSize: 15, fontWeight: 900, color: '#FFFFFF', letterSpacing: 2, whiteSpace: 'nowrap', textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>PROTOVEC</div>
-            <div style={{ fontSize: 11, color: '#FFF176', letterSpacing: 2.5, whiteSpace: 'nowrap', fontWeight: 800, marginTop: 3, textShadow: '0 1px 3px rgba(0,0,0,0.55)' }}>SCADA  v2.0</div>
+          <BrandMark />
+          <div style={{ minWidth: 0, flex: 1, opacity: expanded ? 1 : 0, transition: 'opacity 0.15s', lineHeight: 1 }}>
+            <div style={{ fontFamily: FONT_COND, fontSize: 23, fontWeight: 700, color: '#FFFFFF', letterSpacing: 1.5 }}>{BRAND.name}</div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: THEME.amber, letterSpacing: 2.4, marginTop: 3, whiteSpace: 'nowrap' }}>{BRAND.product}</div>
           </div>
-          <button onClick={onToggle} title="Toggle sidebar" style={{
-            flexShrink: 0, width: 28, height: 28,
-            background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)',
-            borderRadius: 6, color: '#FFFFFF', cursor: 'pointer', fontSize: 15,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 0, fontFamily: 'monospace', lineHeight: 1,
-          }}>☰</button>
+          <button onClick={onToggle} title="Collapse sidebar" style={{
+            flexShrink: 0, width: 30, height: 30, padding: 0,
+            background: THEME.frameRaised, border: `1px solid ${THEME.frameLine}`,
+            borderRadius: 8, color: THEME.frameText, cursor: 'pointer', fontSize: 14,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+          }}>{expanded ? '‹' : '›'}</button>
         </div>
 
         {/* ── Nav list — always fully rendered, clip controls visibility ── */}
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 8px' }}>
           {nav.map((item, i) => {
             if (item.type === 'sep') return (
               <div key={i} style={{
-                padding: '12px 14px 4px', fontSize: 8.5, fontWeight: 700, letterSpacing: 2,
-                color: '#8090A8', whiteSpace: 'nowrap', userSelect: 'none',
+                padding: '14px 10px 6px', fontSize: 10, fontWeight: 700, letterSpacing: 1.6,
+                color: THEME.frameDim, whiteSpace: 'nowrap', userSelect: 'none',
                 opacity: expanded ? 1 : 0, transition: 'opacity 0.15s',
               }}>{item.label}</div>
             );
@@ -1512,20 +1687,28 @@ const Sidebar = memo(function Sidebar({ view, navigate, expanded, onToggle, nav 
                 onClick={() => navigate(item.id)}
                 title={item.label}
                 style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                  padding: item.sub ? '7px 10px 7px 22px' : '8px 10px',
-                  background: isActive ? '#EEF4FF' : 'transparent',
-                  border: 'none', borderLeft: isActive ? '3px solid #1565C0' : '3px solid transparent',
-                  cursor: 'pointer', fontFamily: "'Segoe UI', system-ui, monospace",
-                  transition: 'background 0.12s',
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 11,
+                  padding: item.sub ? '7px 10px 7px 12px' : '9px 10px',
+                  margin: '1px 0', borderRadius: 8, position: 'relative',
+                  background: isActive ? THEME.frameRaised : 'transparent',
+                  border: 'none', cursor: 'pointer', transition: 'background 0.12s',
                 }}
-                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#F4F5FA'; }}
+                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
                 onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
               >
-                <span style={{ fontSize: item.sub ? 15 : 20, fontWeight: 700, width: item.sub ? 17 : 22, textAlign: 'center', color: isActive ? '#1565C0' : '#3A4652', flexShrink: 0, lineHeight: 1 }}>{item.icon}</span>
+                {isActive && (
+                  <span style={{ position: 'absolute', left: 0, top: 7, bottom: 7, width: 3, borderRadius: 2, background: THEME.amber }} />
+                )}
                 <span style={{
-                  fontSize: item.sub ? 11.5 : 12, fontWeight: isActive ? 700 : 500,
-                  color: isActive ? '#1565C0' : '#2A3A4A',
+                  width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: item.sub ? 13 : 15, lineHeight: 1,
+                  background: isActive ? THEME.accent : 'rgba(255,255,255,0.05)',
+                  color: isActive ? '#FFFFFF' : THEME.frameText,
+                }}>{item.icon}</span>
+                <span style={{
+                  fontSize: item.sub ? 13 : 14, fontWeight: isActive ? 700 : 500,
+                  color: isActive ? '#FFFFFF' : THEME.frameText,
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   opacity: expanded ? 1 : 0, transition: 'opacity 0.15s',
                 }}>{item.label}</span>
@@ -1534,10 +1717,13 @@ const Sidebar = memo(function Sidebar({ view, navigate, expanded, onToggle, nav 
           })}
         </div>
 
-        {/* ── Bottom status ─────────────────────────────── */}
-        <div style={{ padding: '10px 14px', borderTop: '1px solid #E8EBF4', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#2E7D32', flexShrink: 0 }} />
-          <span style={{ fontSize: 9, color: '#8090A8', letterSpacing: 1, whiteSpace: 'nowrap', opacity: expanded ? 1 : 0, transition: 'opacity 0.15s' }}>MOCK LIVE</span>
+        {/* ── Data source status ─────────────────────────── */}
+        <div style={{
+          padding: '12px 16px', borderTop: `1px solid ${THEME.frameLine}`, flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 9,
+        }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: sourceColor, boxShadow: `0 0 8px ${sourceColor}`, flexShrink: 0 }} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: THEME.frameText, letterSpacing: 1.2, whiteSpace: 'nowrap', opacity: expanded ? 1 : 0, transition: 'opacity 0.15s' }}>{sourceLabel}</span>
         </div>
       </div>
     </div>
@@ -1546,22 +1732,18 @@ const Sidebar = memo(function Sidebar({ view, navigate, expanded, onToggle, nav 
 
 // ── Config loader — async reads from file, falls back to localStorage ─────────
 function LoadingScreen() {
-  const [dots, setDots] = useState('');
-  useEffect(() => {
-    const id = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 380);
-    return () => clearInterval(id);
-  }, []);
   return (
     <div style={{
-      width: '100vw', height: '100vh', background: '#060C14',
+      width: '100vw', height: '100vh', background: THEME.frame,
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'monospace', gap: 14,
+      fontFamily: FONT, gap: 16,
     }}>
-      <div style={{ fontSize: 11, color: '#00C8FF', letterSpacing: 4 }}>PROTOVEC SCADA</div>
-      <div style={{ fontSize: 9, color: '#2A4A68', letterSpacing: 2 }}>LOADING CONFIGURATION{dots}</div>
-      <div style={{ width: 120, height: 2, background: '#142540', borderRadius: 1, overflow: 'hidden', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: 48, background: '#00C8FF', borderRadius: 1,
-          animation: 'none', opacity: 0.85 }} />
+      <style>{`@keyframes ldSlide { 0% { transform: translateX(-60px); } 100% { transform: translateX(160px); } }`}</style>
+      <BrandMark size={56} />
+      <div style={{ fontFamily: FONT_COND, fontSize: 26, fontWeight: 700, color: '#FFFFFF', letterSpacing: 2 }}>{BRAND.title}</div>
+      <div style={{ fontSize: 11, color: THEME.frameDim, letterSpacing: 2.5, fontWeight: 600 }}>LOADING CONFIGURATION</div>
+      <div style={{ width: 160, height: 3, background: THEME.frameLine, borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ width: 60, height: '100%', background: THEME.accent, borderRadius: 2, animation: 'ldSlide 1.1s ease-in-out infinite alternate' }} />
       </div>
     </div>
   );
@@ -1572,8 +1754,13 @@ export default function WagonScada3D() {
   const [headerCfg, setHeaderCfg] = useState(null);
   const [isFrozen, setIsFrozen]   = useState(null);
   const [pageSelection, setPageSelection] = useState(null);
+  const [dataSource, setDataSource] = useState(null);
 
   useEffect(() => {
+    loadPlcConfigFromServer().then(serverCfg => {
+      if (serverCfg) savePlcConfig(serverCfg);
+      setDataSource(dataSourceOf(serverCfg ?? loadPlcConfig()));
+    });
     loadUserConfigFromFile().then(fileCfg => {
       const cfg = fileCfg ?? loadUserConfig();
       saveUserConfig(cfg); // keep localStorage in sync with the file
@@ -1598,23 +1785,25 @@ export default function WagonScada3D() {
     });
   }, []);
 
-  if (!userCfg || !headerCfg || isFrozen === null || !pageSelection) return <LoadingScreen />;
+  if (!userCfg || !headerCfg || isFrozen === null || !pageSelection || !dataSource) return <LoadingScreen />;
   return (
     <WagonScadaApp
       initialCfg={userCfg} initialHeaderCfg={headerCfg}
       pageSelection={pageSelection} isFrozen={isFrozen}
+      initialDataSource={dataSource}
     />
   );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }) {
+function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen, initialDataSource }) {
   const [userCfg, setUserCfg]     = useState(initialCfg);
   const [headerCfg, setHeaderCfg] = useState(initialHeaderCfg);
   const [view, setView]       = useState(() => initialView(pageSelection));
   const [lastSceneView, setLastSceneView] = useState(() => initialView(pageSelection));
   const [sidebarOpen, setSidebarOpen]     = useState(true);
   const [isSceneFullscreen, setIsSceneFullscreen] = useState(false);
+  const [dataSource, setDataSource] = useState(initialDataSource); // 'mock' | 'plc'
   const [plcMode, setPlcMode] = useState(true); // AUTO/MANUAL — manual toggle for now, no real mode source yet
   const sceneFullscreenRef = useRef(null);
 
@@ -1663,13 +1852,19 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
     return null; // null → StationInfoPage uses defaults
   }, [userCfg]);
 
-  const handleSaveStationNames = newNames => {
-    const newCfg = { ...userCfg, stationNames: newNames };
-    saveUserConfig(newCfg);
-    saveUserConfigToFile(newCfg);
-    setUserCfg(newCfg);
-    setView('config');
-  };
+  // Display name per station (index = id - 1): Mimic Page Configuration's
+  // label is the station's name; the old stored/default name list is only
+  // a fallback for a tank with no label set.
+  const totalStations = simCfg.tracks.reduce((n, t) => n + t.stations.length, 0);
+  const displayStationNames = useMemo(
+    () => buildNamesArray(stationNames, totalStations)
+      .map((fallback, i) => tankTags[String(i + 1)]?.label || fallback),
+    [stationNames, totalStations, tankTags]);
+
+  const stationLabelMap = useMemo(
+    () => Object.fromEntries(Object.entries(tankTags).map(([id, t]) => [id, t?.label || ''])),
+    [tankTags]);
+
 
   const tankPartitions = useMemo(() => {
     if (userCfg.tankPartitions !== undefined) return userCfg.tankPartitions;
@@ -1767,37 +1962,30 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
     setView('config');
   };
 
-  // Called alongside handleSaveStationNames (same Save button on the
-  // Station Info page) — doesn't navigate on its own, that save does.
-  const handleSaveStationParams = newStationParams => {
-    const newCfg = { ...userCfg, stationParams: newStationParams };
+  // Station Parameters page — params, group labels and load-number registers
+  // saved together in ONE config write. (Saving them through three separate
+  // handlers, as before, each started from the same stale userCfg, so only
+  // the last write's change actually survived.)
+  const handleSaveStationInfo = ({ stationParams: sp, stationParamLabels: sl, stationLoadNumbers: ln }) => {
+    const newCfg = { ...userCfg, stationParams: sp, stationParamLabels: sl, stationLoadNumbers: ln };
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
+    setView('config');
   };
 
-  // Also from the Station Info page's Save button — the per-station free-text
-  // "Parameter Label" tag (e.g. "Zone A"), separate from each parameter
-  // entry's own kind. Purely display metadata, no PLC tag involved.
-  const handleSaveStationParamLabels = newLabels => {
-    const newCfg = { ...userCfg, stationParamLabels: newLabels };
-    saveUserConfig(newCfg);
-    saveUserConfigToFile(newCfg);
-    setUserCfg(newCfg);
-  };
 
-  // Also from the Station Info page's Save button — the dedicated per-
-  // station Load Number tag (always int16), separate from the flexible
-  // parameter list.
-  const handleSaveStationLoadNumbers = newAddresses => {
-    const newCfg = { ...userCfg, stationLoadNumbers: newAddresses };
-    saveUserConfig(newCfg);
-    saveUserConfigToFile(newCfg);
-    setUserCfg(newCfg);
-  };
 
-  const { wagons, stations, setWagonTarget, snapWagonToTank, setWagonLoadFlag, setWagonMode, setStationHasLoad } = useWagonSimulation(simCfg);
-  const { tags: grpcTags, connected: grpcConnected } = useTagSocket();
+
+  const { wagons, stations, setWagonTarget, snapWagonToTank, setWagonLoadFlag, setWagonMode, setStationHasLoad, setStationTemperature } = useWagonSimulation(simCfg);
+  // Live tags come from exactly one source: the built-in plant simulation
+  // (data source "mock" — see sim/mockPlant.js) or the backend's real PLC
+  // poller over WebSocket ("plc"). Both produce the same tag names and
+  // shape, so everything below is identical either way.
+  const isMock = dataSource === 'mock';
+  const mockFeed = useMockTags(isMock, userCfg);
+  const plcFeed  = useTagSocket(!isMock);
+  const { tags: grpcTags, connected: grpcConnected } = isMock ? mockFeed : plcFeed;
 
   // Live PLC read: whenever a tank's configured tag name has a live value
   // (published continuously by the backend's PLC poller — see
@@ -1815,6 +2003,15 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
       setStationHasLoad(Number(tankId), Number(live.value) !== 0);
     });
   }, [grpcTags, tankTags, setStationHasLoad]);
+
+  // Live tank temperature (Tank_<id>_Temp) — feeds the 2D thermometers /
+  // tooltips and anything else reading station.temperature.
+  useEffect(() => {
+    stations.forEach(st => {
+      const v = parseFloat(grpcTags[`Tank_${st.id}_Temp`]?.value);
+      if (Number.isFinite(v) && v !== st.temperature) setStationTemperature(st.id, v);
+    });
+  }, [grpcTags, setStationTemperature]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Station parameter tags (Station Info page's flexible label/address/
   // type/unit list) — live values, keyed the same way plc_publisher.py
@@ -1845,22 +2042,15 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
     // Load Number — a separate dedicated per-station tag (Station Info
     // page's own "LOAD NUMBER" column, always int16), merged into the same
     // tooltip lines built above rather than threaded as its own prop.
-    Object.entries(stationLoadNumbers).forEach(([stationId, address]) => {
-      if (!address) return;
+    simCfg.tracks.forEach(t => t.stations.forEach(({ id }) => {
+      const stationId = String(id);
       const live = grpcTags[`STATION_${stationId}_LOADNUM`];
       if (!live) return;
       const entry = { label: 'Load Number', unit: '', value: live.value };
       out[stationId] = out[stationId] ? [...out[stationId], entry] : [entry];
-    });
+    }));
     return out;
-  }, [stationParams, stationLoadNumbers, grpcTags]);
-
-  // Tank tag values mirror simulation station hasLoad — future: replaced by gRPC writes
-  const tagValues = useMemo(() => {
-    const v = {};
-    stations.forEach(st => { v[String(st.id)] = st.hasLoad ? 1 : 0; });
-    return v;
-  }, [stations]);
+  }, [stationParams, simCfg, grpcTags]);
 
   // Wagon location tag values — live only now, no mock. Mirrors the
   // tank-load override above: whenever a wagon's configured tag name has a
@@ -1913,7 +2103,9 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
       if (upLive && Number(upLive.value) !== 0) flag = true; // SET wins on a tie
 
       if (flag !== undefined && flag !== wagonLoadFlags[wagonId]) {
-        setWagonLoadFlag(Number(wagonId), flag);
+        // Animate the hoist dip for a genuine change; the very first value
+        // seen (page load) just sets the state.
+        setWagonLoadFlag(Number(wagonId), flag, wagonLoadFlags[wagonId] !== undefined);
         setWagonLoadFlags(prev => ({ ...prev, [wagonId]: flag }));
       }
     });
@@ -1959,7 +2151,10 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   const timeStr  = clock.toLocaleTimeString('en-GB', { hour12: false });
   const dateStr  = clock.toLocaleDateString('en-GB',
     { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
-  const activeAlarmCount = wagons.filter(w => w.status.startsWith('arm_')).length;
+  const liveAlarmCount = Number(grpcTags.PLANT_ALARM_COUNT?.value);
+  const activeAlarmCount = Number.isFinite(liveAlarmCount)
+    ? liveAlarmCount
+    : wagons.filter(w => w.status.startsWith('arm_')).length;
 
   // Same centering logic as Scene3D's cx — spans whatever ALL lines
   // actually occupy, not just line 0's own tank count.
@@ -1968,9 +2163,11 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   const pal  = C.palette;
 
   return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'row', background: pal.bg, fontFamily: 'monospace', overflow: 'hidden' }}>
+    <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'row', background: THEME.pageBg, fontFamily: FONT, overflow: 'hidden' }}>
       {/* Sidebar */}
-      <Sidebar view={view} navigate={navigate} expanded={sidebarOpen} onToggle={toggleSidebar} nav={filterNav(NAV, pageSelection, isFrozen)} />
+      <Sidebar view={view} navigate={navigate} expanded={sidebarOpen} onToggle={toggleSidebar} nav={filterNav(NAV, pageSelection, isFrozen)}
+        sourceLabel={isMock ? 'SIMULATION' : grpcConnected ? 'PLC ONLINE' : 'PLC OFFLINE'}
+        sourceColor={isMock ? '#B07CE8' : grpcConnected ? '#3FB97A' : '#E5534B'} />
 
       {/* Main area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
@@ -1978,11 +2175,12 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
             font size here never change, whatever is configured just fits into
             these fixed slots (logo capped to LOGO_MAX_H, name truncates). */}
         <div style={{
-          background: 'linear-gradient(90deg,#DDE4F0,#E8EDF8,#DDE4F0)',
-          borderBottom: `1px solid ${pal.panelBorder}`,
-          padding: '4px 16px',
+          background: THEME.panel,
+          borderBottom: `1px solid ${THEME.border}`,
+          boxShadow: '0 1px 0 rgba(0,0,0,0.02), 0 4px 14px rgba(22,27,34,0.05)',
+          padding: '0 18px', position: 'relative', zIndex: 5,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          flexShrink: 0, minHeight: 38,
+          flexShrink: 0, height: 60,
         }}>
           <HeaderBrandLeft logo1={headerCfg.left.logo1} logo2={headerCfg.left.logo2} />
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center', minWidth: 0 }}>
@@ -1990,8 +2188,10 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             <StatusChip
-              dot={grpcConnected ? pal.ok : pal.danger}
-              label="PLC COMM"
+              dot={grpcConnected ? (isMock ? '#8E24AA' : pal.ok) : pal.danger}
+              label={isMock ? 'DATA' : 'PLC COMM'}
+              value={isMock ? 'SIMULATION' : undefined}
+              valueColor="#8E24AA"
             />
             <StatusChip
               label="MODE"
@@ -2004,9 +2204,9 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               value={activeAlarmCount}
               valueColor={activeAlarmCount > 0 ? pal.danger : pal.textDim}
             />
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 8.5, color: pal.textDim, letterSpacing: 2 }}>{dateStr}</div>
-              <div style={{ fontSize: 16, color: pal.accent, fontWeight: 'bold', letterSpacing: 3 }}>{timeStr}</div>
+            <div style={{ textAlign: 'right', paddingLeft: 12, marginLeft: 4, borderLeft: `1px solid ${THEME.border}` }}>
+              <div style={{ fontFamily: FONT_COND, fontSize: 22, color: THEME.text, fontWeight: 700, letterSpacing: 1.5, lineHeight: 1 }}>{timeStr}</div>
+              <div style={{ fontSize: 10, color: THEME.textDim, letterSpacing: 1.6, fontWeight: 600, marginTop: 3 }}>{dateStr}</div>
             </div>
           </div>
         </div>
@@ -2016,22 +2216,24 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
           {view === '2d' && (
             <div ref={sceneFullscreenRef} style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
               <WagonScadaScreen wagons={wagons} stations={stations} tracks={simCfg.tracks}
+                liveTags={grpcTags} wagonLocations={wagonLocationTagValues}
+                stationLabels={stationLabelMap} wagonTypeMap={wagonTypeMap}
                 tankPartitions={tankPartitions} crossTrolleys={crossTrolleys} />
               {/* Fullscreen toggle */}
               <button
                 onClick={toggleSceneFullscreen}
                 title={isSceneFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
                 style={{
-                  position: 'absolute', top: 10, right: 10, zIndex: 20,
-                  width: 34, height: 34, padding: 0,
-                  background: 'rgba(10,22,40,0.72)', border: '1px solid rgba(100,160,220,0.35)',
-                  borderRadius: 6, color: '#A8C8F0', cursor: 'pointer', fontSize: 16,
+                  position: 'absolute', top: 12, right: 12, zIndex: 20,
+                  width: 36, height: 36, padding: 0,
+                  background: 'rgba(22,27,34,0.82)', border: '1px solid rgba(255,255,255,0.14)',
+                  borderRadius: 9, color: '#FFFFFF', cursor: 'pointer', fontSize: 16,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   backdropFilter: 'blur(4px)',
                   transition: 'background 0.15s, border-color 0.15s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(21,101,192,0.80)'; e.currentTarget.style.borderColor = '#4A90D9'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(10,22,40,0.72)'; e.currentTarget.style.borderColor = 'rgba(100,160,220,0.35)'; }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(14,124,134,0.92)'; e.currentTarget.style.borderColor = '#14A3AE'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(22,27,34,0.82)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; }}
               >
                 {isSceneFullscreen ? '⊡' : '⛶'}
               </button>
@@ -2049,16 +2251,16 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
                 onClick={toggleSceneFullscreen}
                 title={isSceneFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
                 style={{
-                  position: 'absolute', top: 10, right: 10, zIndex: 20,
-                  width: 34, height: 34, padding: 0,
-                  background: 'rgba(10,22,40,0.72)', border: '1px solid rgba(100,160,220,0.35)',
-                  borderRadius: 6, color: '#A8C8F0', cursor: 'pointer', fontSize: 16,
+                  position: 'absolute', top: 12, right: 12, zIndex: 20,
+                  width: 36, height: 36, padding: 0,
+                  background: 'rgba(22,27,34,0.82)', border: '1px solid rgba(255,255,255,0.14)',
+                  borderRadius: 9, color: '#FFFFFF', cursor: 'pointer', fontSize: 16,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   backdropFilter: 'blur(4px)',
                   transition: 'background 0.15s, border-color 0.15s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(21,101,192,0.80)'; e.currentTarget.style.borderColor = '#4A90D9'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(10,22,40,0.72)'; e.currentTarget.style.borderColor = 'rgba(100,160,220,0.35)'; }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(14,124,134,0.92)'; e.currentTarget.style.borderColor = '#14A3AE'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(22,27,34,0.82)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; }}
               >
                 {isSceneFullscreen ? '⊡' : '⛶'}
               </button>
@@ -2093,31 +2295,17 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               onBack={() => setView('config')}
             />
           )}
-          {view === 'tags' && (
-            <TagMonitorPage
-              tankTags={tankTags}
-              tagValues={tagValues}
-              userCfg={userCfg}
-              wagonTags={wagonTags}
-              wagonLocationValues={wagonLocationTagValues}
-              grpcTags={grpcTags}
-              grpcConnected={grpcConnected}
-              simWagons={wagons}
-              simStations={stations}
-              onTankTagChange={(tankId, value) => setStationHasLoad(tankId, value === 1)}
-              onWagonLocationChange={(wagonId, tankId) => {
-                setWagonTarget(Number(wagonId), Number(tankId));
-                setWagonLocationTagValues(prev => ({ ...prev, [String(wagonId)]: Number(tankId) }));
-              }}
-              onBack={() => setView(lastSceneView)}
-            />
-          )}
           {view === 'station-info' && (
             <StationInfoPage
               wagons={wagons}
               stations={stations}
+              tracks={simCfg.tracks}
+              liveTags={grpcTags}
+              connected={grpcConnected}
+              stationParams={stationParams}
+              wagonLocations={wagonLocationTagValues}
               colConfig={stationColCfg}
-              stationNames={buildNamesArray(stationNames, stations.length)}
+              stationNames={displayStationNames}
               onBack={() => setView(lastSceneView)}
             />
           )}
@@ -2136,10 +2324,7 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               stationParamLabels={stationParamLabels}
               stationLoadNumbers={stationLoadNumbers}
               tankTags={tankTags}
-              onSave={handleSaveStationNames}
-              onSaveParams={handleSaveStationParams}
-              onSaveParamLabels={handleSaveStationParamLabels}
-              onSaveLoadNumbers={handleSaveStationLoadNumbers}
+              onSaveAll={handleSaveStationInfo}
               onBack={() => setView('config')}
             />
           )}
@@ -2154,7 +2339,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
                 // Configured stations (same ids/order the simulation is built from),
                 // not the simulation's own state — settings pages stay off mock data.
                 stations: simCfg.tracks.flatMap(t => t.stations),
-                stationNames: buildNamesArray(stationNames, simCfg.tracks.reduce((n, t) => n + t.stations.length, 0)),
+                stationNames: displayStationNames,
+                wagonTags,
                 grpcTags,
                 grpcConnected,
               }}
@@ -2167,11 +2353,13 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               onBack={() => setView(lastSceneView)}
             />
           )}
+          {view === 'dairy-3d' && <Dairy3DPage />}
+          {view === 'dairy-reports' && <ReportsPage />}
           {view === 'app-builder' && (
             <AppBuilderPage onNavigateToPlcTest={() => navigate('plc-test')} />
           )}
           {view === 'plc-test' && (
-            <PlcConnectionTestPage onBack={() => setView(lastSceneView)} />
+            <PlcConnectionTestPage onBack={() => setView(lastSceneView)} onDataSourceChange={setDataSource} />
           )}
           {view === 'tank-partitions' && (
             <TankPartitionConfigPage
@@ -2196,19 +2384,19 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
           {(view === '2d' || view === '3d') && (
             <div style={{
               position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 9,
-              height: 56, background: 'rgba(18, 26, 38, 0.58)', backdropFilter: 'blur(4px)',
-              borderTop: '1px solid rgba(255,255,255,0.14)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 36,
+              height: 48, background: 'rgba(22,27,34,0.86)', backdropFilter: 'blur(6px)',
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 34,
               pointerEvents: 'none',
             }}>
-              <span style={{ fontSize: 10, color: '#C8D2DC', letterSpacing: 2, fontWeight: 700 }}>WAGON MODE</span>
+              <span style={{ fontSize: 11, color: THEME.frameDim, letterSpacing: 2, fontWeight: 700 }}>WAGON MODE</span>
               {MODE_LEGEND.map(({ mode, label }) => (
                 <div key={mode} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{
                     width: 13, height: 13, borderRadius: '50%',
                     background: MODE_COLOR[mode], boxShadow: `0 0 8px ${MODE_COLOR[mode]}`,
                   }} />
-                  <span style={{ fontSize: 12.5, color: '#FFFFFF', fontWeight: 700, letterSpacing: 1 }}>{label}</span>
+                  <span style={{ fontSize: 13, color: '#FFFFFF', fontWeight: 700, letterSpacing: 1.2 }}>{label}</span>
                 </div>
               ))}
             </div>

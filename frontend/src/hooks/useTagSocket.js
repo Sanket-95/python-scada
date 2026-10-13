@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react';
 
 const WS_URL = 'ws://localhost:50054/';
 
-export function useTagSocket() {
+// `enabled` = false (data source is the built-in simulation) keeps the socket
+// closed entirely, so a missing backend doesn't spam reconnect attempts.
+export function useTagSocket(enabled = true) {
   const [tags, setTags]           = useState({});  // { name: { name, value, unit, timestamp } }
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
+    if (!enabled) { setTags({}); setConnected(false); return; }
     let ws;
     let timer;
+    let closed = false;
 
     function connect() {
       ws = new WebSocket(WS_URL);
@@ -30,15 +34,15 @@ export function useTagSocket() {
 
       ws.onclose = () => {
         setConnected(false);
-        timer = setTimeout(connect, 3000);
+        if (!closed) timer = setTimeout(connect, 3000);
       };
 
       ws.onerror = () => ws.close();
     }
 
     connect();
-    return () => { clearTimeout(timer); ws?.close(); };
-  }, []);
+    return () => { closed = true; clearTimeout(timer); ws?.close(); };
+  }, [enabled]);
 
   return { tags, connected };
 }

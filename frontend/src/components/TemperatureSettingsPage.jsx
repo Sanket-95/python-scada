@@ -1,68 +1,68 @@
-import { memo, useRef, useState } from 'react';
+import { memo, useMemo, useRef, useState } from 'react';
 import { loadTempSetpoints, saveTempSetpoints } from '../config/temperatureSetpoints';
+import { THEME, FONT_COND } from '../theme';
+import { Card, Grid, Row, Stat, Segmented, SearchBox, Input, Badge, SavedNote, Mono } from '../ui/kit';
 
-const T = {
-  panelBg: '#FFFFFF', cardBg: '#F4F5FA', cardHdr: '#E8EBF4', border: '#C4C8D4',
-  accent: '#1565C0', ok: '#2E7D32', danger: '#C62828',
-  textWh: '#1A2035', textLt: '#3A4F6A', textDim: '#8090A8',
-};
+// Bath Temperature — a low/high band per tank, checked against the live
+// reading. Each row draws a small gauge: the band in teal, the live reading as
+// a marker. Values save when a box loses focus (Enter also commits); an
+// invalid row (bad number, or Low > High) stays as typed and isn't saved.
 
-const COLS = '1fr 150px 150px 150px';
-
-// '' is allowed (no set point); anything else must be a finite number.
-const isNum = v => v !== '' && Number.isFinite(Number(v));
-const fieldBad = v => v !== '' && !isNum(v);
+const isNum = v => v !== '' && v !== undefined && Number.isFinite(Number(v));
+const fieldBad = v => v !== '' && v !== undefined && !isNum(v);
 const rowBad = ({ low = '', high = '' }) =>
   fieldBad(low) || fieldBad(high) || (isNum(low) && isNum(high) && Number(low) > Number(high));
 
-const input = (bad) => ({
-  width: '100%', boxSizing: 'border-box', padding: '7px 10px', fontSize: 13, fontWeight: 600,
-  fontFamily: 'inherit', textAlign: 'right', outline: 'none', borderRadius: 6,
-  background: '#FFFFFF', color: T.textWh,
-  border: `1.5px solid ${bad ? T.danger : T.border}`,
-});
+function statusOf(actual, { low = '', high = '' }) {
+  if (actual == null) return { key: 'nodata', label: 'No reading', tone: 'neutral' };
+  if (!isNum(low) && !isNum(high)) return { key: 'noband', label: 'No band', tone: 'neutral' };
+  if (isNum(low) && actual < Number(low)) return { key: 'low', label: 'Too cold', tone: 'warn' };
+  if (isNum(high) && actual > Number(high)) return { key: 'high', label: 'Too hot', tone: 'danger' };
+  return { key: 'ok', label: 'In band', tone: 'ok' };
+}
 
-// Only re-renders when its own numbers change — the simulation ticks the
-// stations constantly, and 60+ rows shouldn't all repaint for that.
-const Row = memo(function Row({ id, no, name, low, high, actual, bad, onChange, onCommit }) {
-  const onKeyDown = e => e.key === 'Enter' && e.currentTarget.blur();
+// 0–100 °C scale gauge.
+function BandGauge({ low, high, actual }) {
+  const pct = v => `${Math.max(0, Math.min(100, Number(v)))}%`;
+  const lo = isNum(low) ? Number(low) : 0, hi = isNum(high) ? Number(high) : 100;
+  const hasBand = isNum(low) || isNum(high);
   return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: COLS, gap: 12, alignItems: 'center',
-      padding: '7px 16px', borderBottom: `1px solid ${T.border}55`,
-      background: no % 2 ? T.panelBg : T.cardBg,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-        <span style={{
-          flexShrink: 0, minWidth: 26, textAlign: 'center', fontSize: 10.5, fontWeight: 800,
-          color: T.accent, background: '#E3F2FD', borderRadius: 4, padding: '2px 6px',
-        }}>{no}</span>
-        <span style={{
-          fontSize: 13, fontWeight: 700, color: T.textWh,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }} title={name}>{name}</span>
-      </div>
-      <input type="number" step="any" value={low} placeholder="—" style={input(bad || fieldBad(low))}
-        onChange={e => onChange(id, 'low', e.target.value)}
-        onBlur={() => onCommit(id)} onKeyDown={onKeyDown} />
-      <input type="number" step="any" value={high} placeholder="—" style={input(bad || fieldBad(high))}
-        onChange={e => onChange(id, 'high', e.target.value)}
-        onBlur={() => onCommit(id)} onKeyDown={onKeyDown} />
-      {/* Read-only: a value, not an input, so it can't be mistaken for editable */}
-      <div style={{
-        textAlign: 'right', padding: '7px 10px', fontSize: 13, fontWeight: 700,
-        color: T.textLt, background: '#ECEFF4', border: `1.5px solid ${T.border}`, borderRadius: 6,
-      }}>{actual}</div>
+    <div style={{ position: 'relative', height: 10, borderRadius: 5, background: '#E6EAEE', minWidth: 140 }}>
+      {hasBand && (
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: pct(lo), width: `calc(${pct(hi)} - ${pct(lo)})`, background: `${THEME.accent}55`, borderRadius: 5 }} />
+      )}
+      {actual != null && (
+        <div style={{ position: 'absolute', top: -3, left: `calc(${pct(actual)} - 2px)`, width: 4, height: 16, borderRadius: 2, background: THEME.text }} />
+      )}
+    </div>
+  );
+}
+
+const TempRow = memo(function TempRow({ id, name, low, high, actual, bad, onChange, onCommit }) {
+  const st = statusOf(actual, { low, high });
+  const key = e => e.key === 'Enter' && e.currentTarget.blur();
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '60px minmax(160px,1.4fr) 90px minmax(150px,1.2fr) 110px 110px 110px', gap: 14, alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid #EEF1F3' }}>
+      <Mono style={{ fontWeight: 700, color: THEME.accentDark }}>T{String(id).padStart(2, '0')}</Mono>
+      <span style={{ fontWeight: 600, color: THEME.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={name}>{name}</span>
+      <span style={{ fontFamily: FONT_COND, fontSize: 21, fontWeight: 700, color: st.key === 'high' ? THEME.danger : st.key === 'low' ? THEME.warn : THEME.text }}>
+        {actual != null ? `${actual.toFixed(1)}°` : '—'}
+      </span>
+      <BandGauge low={low} high={high} actual={actual} />
+      <Input type="number" step="any" value={low} placeholder="Low °C" invalid={bad || fieldBad(low)} style={{ textAlign: 'right', height: 34 }}
+        onChange={e => onChange(id, 'low', e.target.value)} onBlur={() => onCommit(id)} onKeyDown={key} />
+      <Input type="number" step="any" value={high} placeholder="High °C" invalid={bad || fieldBad(high)} style={{ textAlign: 'right', height: 34 }}
+        onChange={e => onChange(id, 'high', e.target.value)} onBlur={() => onCommit(id)} onKeyDown={key} />
+      <div style={{ textAlign: 'right' }}><Badge toneName={bad ? 'danger' : st.tone}>{bad ? 'Invalid' : st.label}</Badge></div>
     </div>
   );
 });
 
-// stations / stationNames / grpcTags / grpcConnected come from the app shell
-// through SettingsPage's pageContext. `stations` is only the configured list
-// (id per row, in order) — nothing from the simulation is read here.
 export default function TemperatureSettingsPage({ stations = [], stationNames = [], grpcTags = {}, grpcConnected = false }) {
   const [values, setValues] = useState(loadTempSetpoints);
   const [flash, setFlash] = useState(false);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
   const flashTimer = useRef(null);
 
   const onChange = (id, field, value) => {
@@ -70,17 +70,8 @@ export default function TemperatureSettingsPage({ stations = [], stationNames = 
     setValues(v => ({ ...v, [id]: { ...v[id], [field]: value } }));
   };
 
-  const anyBad = stations.some(st => rowBad(values[st.id] || {}));
-
-  // Saves that one row when a box loses focus — never on every keystroke.
-  // An invalid row (bad number, or Low > High) is left exactly as typed, red
-  // border and all, and is simply not persisted until it's fixed.
-  //
-  // Also updates `values` (not just storage) with the same pruned object:
-  // leaving a just-emptied row sitting in `values` while only removing it
-  // from storage would let it silently reappear the next time some other,
-  // unrelated row gets committed — that commit rebuilds the whole saved
-  // object from `values`, so anything still sitting there gets resaved.
+  // Saves that one row on blur. Also prunes an emptied row from `values`, so
+  // it can't reappear when some other row's commit rebuilds the saved object.
   const commit = id => {
     const row = values[id] || {};
     if (rowBad(row)) return;
@@ -91,59 +82,56 @@ export default function TemperatureSettingsPage({ stations = [], stationNames = 
     saveTempSetpoints(next);
     setFlash(true);
     clearTimeout(flashTimer.current);
-    flashTimer.current = setTimeout(() => setFlash(false), 1200);
+    flashTimer.current = setTimeout(() => setFlash(false), 1400);
   };
 
-  // Live tag values only — no simulated fallback. Without a connection, or
-  // without a value for that station, it shows "—" rather than a made-up
-  // number. (A dropped connection also stops showing the last value it had,
-  // since that would pass off stale data as current.)
-  const actualOf = st => {
+  // Live readings only — without a connection nothing is shown, rather than a stale number.
+  const rows = useMemo(() => stations.map((st, i) => {
     const live = grpcConnected ? parseFloat(grpcTags[`Tank_${st.id}_Temp`]?.value) : NaN;
-    return Number.isFinite(live) ? `${live.toFixed(1)} °C` : '—';
-  };
+    const sp = values[st.id] || {};
+    return { id: st.id, name: stationNames[i] || `Station ${i + 1}`, low: sp.low ?? '', high: sp.high ?? '', actual: Number.isFinite(live) ? live : null };
+  }), [stations, stationNames, grpcTags, grpcConnected, values]);
+
+  const withStatus = rows.map(r => ({ ...r, st: statusOf(r.actual, r) }));
+  const out = withStatus.filter(r => r.st.key === 'high' || r.st.key === 'low').length;
+  const banded = withStatus.filter(r => r.st.key !== 'noband' && (isNum(r.low) || isNum(r.high))).length;
+  const readings = withStatus.filter(r => r.actual != null);
+  const avg = readings.length ? readings.reduce((a, r) => a + r.actual, 0) / readings.length : null;
+  const hottest = readings.reduce((m, r) => (!m || r.actual > m.actual ? r : m), null);
+
+  const shown = withStatus.filter(r => {
+    if (query && !`${r.id} ${r.name}`.toLowerCase().includes(query.toLowerCase())) return false;
+    if (filter === 'out') return r.st.key === 'high' || r.st.key === 'low';
+    if (filter === 'banded') return isNum(r.low) || isNum(r.high);
+    return true;
+  });
 
   return (
-    <div style={{ maxWidth: 820, margin: '0 auto' }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-        flexWrap: 'wrap', marginBottom: 12,
-      }}>
-        <div style={{ fontSize: 12, color: T.textDim }}>
-          {stations.length} station{stations.length === 1 ? '' : 's'} · set points are optional — leave a box empty for none
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <Grid min={210}>
+        <Stat label="Out of band" value={out} toneName={out ? 'danger' : 'ok'} icon="⚠" sub="tanks outside their band" />
+        <Stat label="Bands set" value={`${banded}/${rows.length}`} icon="⇿" />
+        <Stat label="Average bath" value={avg != null ? `${avg.toFixed(1)}°` : '—'} icon="🌡" toneName="info" />
+        <Stat label="Hottest" value={hottest ? `${hottest.actual.toFixed(1)}°` : '—'} icon="♨" sub={hottest?.name} toneName="warn" />
+      </Grid>
+      <Card title="Temperature bands" subtitle="Scale 0–100 °C · teal = allowed band · bar = live reading" icon="🌡" pad={0}
+        actions={(
+          <Row>
+            <SavedNote show={flash} />
+            <Segmented size="sm" value={filter} onChange={setFilter} options={[
+              { value: 'all', label: 'All' }, { value: 'out', label: 'Out of band' }, { value: 'banded', label: 'With band' },
+            ]} />
+            <SearchBox value={query} onChange={setQuery} placeholder="Find tank…" width={190} />
+          </Row>
+        )}>
+        <div style={{ maxHeight: 'calc(100vh - 420px)', minHeight: 240, overflowY: 'auto' }}>
+          {shown.map(r => (
+            <TempRow key={r.id} id={r.id} name={r.name} low={r.low} high={r.high} actual={r.actual}
+              bad={rowBad(values[r.id] || {})} onChange={onChange} onCommit={commit} />
+          ))}
+          {shown.length === 0 && <div style={{ padding: 30, textAlign: 'center', color: THEME.textDim }}>No tanks match this filter</div>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {anyBad && <span style={{ fontSize: 12, fontWeight: 700, color: T.danger }}>Low must be ≤ High</span>}
-          {!anyBad && flash && <span style={{ fontSize: 12, fontWeight: 700, color: T.ok }}>✔ Saved</span>}
-        </div>
-      </div>
-
-      <div style={{ background: T.panelBg, border: `1px solid ${T.border}`, borderRadius: 10, overflow: 'hidden' }}>
-        <div style={{
-          display: 'grid', gridTemplateColumns: COLS, gap: 12, padding: '11px 16px',
-          background: T.cardHdr, borderBottom: `2px solid ${T.accent}`,
-          fontSize: 10.5, fontWeight: 800, letterSpacing: 1, color: T.accent,
-        }}>
-          <div>STATION NAME</div>
-          <div style={{ textAlign: 'right' }}>LOW SET POINT</div>
-          <div style={{ textAlign: 'right' }}>HIGH SET POINT</div>
-          <div style={{ textAlign: 'right' }}>ACTUAL TEMP</div>
-        </div>
-        <div style={{ maxHeight: 'calc(100vh - 330px)', minHeight: 200, overflowY: 'auto' }}>
-          {stations.map((st, i) => {
-            const sp = values[st.id] || {};
-            return (
-              <Row
-                key={st.id} id={st.id} no={i + 1}
-                name={stationNames[i] || `Station ${i + 1}`}
-                low={sp.low ?? ''} high={sp.high ?? ''}
-                actual={actualOf(st)} bad={rowBad(sp)}
-                onChange={onChange} onCommit={commit}
-              />
-            );
-          })}
-        </div>
-      </div>
+      </Card>
     </div>
   );
 }

@@ -1,0 +1,203 @@
+{
+  "report_id": "RPT-SUMM-20250819-EAAF21",
+  "report": "summary",
+  "title": "Daily Production Summary",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "plant": "Sahyadri Valley Dairy (fictional demo plant)",
+    "total_received_l": 85778.0,
+    "cow_received_l": 47341.0,
+    "buffalo_received_l": 38437.0,
+    "accepted_l": 75638.5,
+    "rejected_l": 10136.8,
+    "samples_l": 2.79,
+    "deliveries": 14,
+    "avg_receiving_temp_c": 6.19,
+    "intake_balance_difference_l": -0.0,
+    "quality": {
+      "Cow": {
+        "fat_weighted": 3.77,
+        "snf_weighted": 8.51,
+        "fat_simple": 3.81,
+        "snf_simple": 8.54,
+        "samples": 8
+      },
+      "Buffalo": {
+        "fat_weighted": 7.71,
+        "snf_weighted": 9.27,
+        "fat_simple": 7.73,
+        "snf_simple": 9.21,
+        "samples": 6
+      }
+    },
+    "quality_review_count": 8,
+    "processed_volume_l": 82327.4,
+    "pack_records": 10,
+    "pack_planned_units": 137206,
+    "pack_produced_units": 136471,
+    "pack_accepted_packs": 135611,
+    "pack_rejected_packs": 860,
+    "pack_finished_volume_l": 80147.0,
+    "pack_rejected_volume_l": 532.0,
+    "pack_downtime_min": 22.4,
+    "pack_operating_min": 1285.3,
+    "pack_by_size": {
+      "500": {
+        "accepted_packs": 110928,
+        "rejected_packs": 656,
+        "finished_volume_l": 55464.0
+      },
+      "1000": {
+        "accepted_packs": 24683,
+        "rejected_packs": 204,
+        "finished_volume_l": 24683.0
+      }
+    },
+    "tank_closing": {
+      "RT-01": 0.0,
+      "ST-COW-01": 13753.0,
+      "ST-BUF-01": 15821.5,
+      "ST-PM-01": 6755.7
+    },
+    "cip": {
+      "COMPLETED": 7,
+      "INCOMPLETE": 0,
+      "FAILED DEMO CRITERIA": 1
+    },
+    "equipment_downtime_min": 22.4,
+    "open_alarms": 0,
+    "alarms_by_severity": {
+      "INFO": 0,
+      "WARNING": 8,
+      "CRITICAL": 2,
+      "FAULT": 0
+    },
+    "batch_disposition": {
+      "COMPLETED": 5,
+      "REVIEW REQUIRED": 1,
+      "FAILED DEMO CRITERIA": 0,
+      "RUNNING": 0,
+      "NOT STARTED": 0
+    },
+    "reconciliation": {
+      "terms": [
+        {
+          "term": "Opening inventory (all tanks + in-process)",
+          "sign": "+",
+          "volume_l": 41799.4,
+          "mass_kg": 43137.0
+        },
+        {
+          "term": "Milk received (gross)",
+          "sign": "+",
+          "volume_l": 85778.0,
+          "mass_kg": 88522.9
+        },
+        {
+          "term": "Milk rejected at intake",
+          "sign": "−",
+          "volume_l": 10136.8,
+          "mass_kg": 10461.1
+        },
+        {
+          "term": "Documented intake samples",
+          "sign": "−",
+          "volume_l": 2.8,
+          "mass_kg": 2.9
+        },
+        {
+          "term": "Finished-product volume (accepted packs)",
+          "sign": "−",
+          "volume_l": 80147.0,
+          "mass_kg": 82711.7
+        },
+        {
+          "term": "Rejected packs volume",
+          "sign": "−",
+          "volume_l": 532.0,
+          "mass_kg": 549.0
+        },
+        {
+          "term": "Documented process losses",
+          "sign": "−",
+          "volume_l": 271.1,
+          "mass_kg": 279.8
+        },
+        {
+          "term": "Closing inventory (all tanks + in-process)",
+          "sign": "−",
+          "volume_l": 36330.2,
+          "mass_kg": 37492.8
+        }
+      ],
+      "unexplained_l": 157.5,
+      "unexplained_kg": 162.5,
+      "unexplained_pct_of_received": 0.184,
+      "transferred_to_processing_l": 82327.4,
+      "density_assumption_kg_l": 1.032,
+      "opening_ts": "2025-08-19T06:00:00",
+      "closing_ts": "2025-08-20T06:00:00"
+    }
+  },
+  "rows": [],
+  "pagination": null,
+  "columns": [],
+  "charts": {
+    "by_shift": [
+      {
+        "x": "Morning",
+        "received_l": 50735.0,
+        "packs": 29539
+      },
+      {
+        "x": "Afternoon",
+        "received_l": 21374.0,
+        "packs": 66974
+      },
+      {
+        "x": "Night",
+        "received_l": 13669.0,
+        "packs": 39098
+      }
+    ],
+    "quality": {
+      "Cow": {
+        "fat_weighted": 3.77,
+        "snf_weighted": 8.51,
+        "fat_simple": 3.81,
+        "snf_simple": 8.54,
+        "samples": 8
+      },
+      "Buffalo": {
+        "fat_weighted": 7.71,
+        "snf_weighted": 9.27,
+        "fat_simple": 7.73,
+        "snf_simple": 9.21,
+        "samples": 6
+      }
+    }
+  },
+  "notes": [
+    "All figures are simulated demonstration data generated from one shared seeded dataset.",
+    "Fat / SNF summary values are volume-weighted by accepted litres; simple averages are shown alongside.",
+    "Thresholds and process criteria are illustrative demo rules — verify against current applicable standards.",
+    "Mass figures assume a density of 1.032 kg/L."
+  ]
+}

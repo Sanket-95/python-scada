@@ -2,275 +2,275 @@
   "lines": [
     {
       "id": 1,
-      "label": "LINE-A",
+      "label": "BARREL LINE",
       "tanks": 21,
       "wagons": 1,
       "type": "barrel"
     },
     {
       "id": 2,
-      "label": "LINE-B",
+      "label": "BASKET LINE",
       "tanks": 22,
       "wagons": 1,
-      "type": "basket"
+      "type": "rack"
     }
   ],
   "tankTags": {
     "1": {
       "name": "LOAD_AT_STATION_1",
-      "label": "Loading",
+      "label": "Loading Bay A",
       "type": "uint16",
       "address": "D701"
     },
     "2": {
       "name": "LOAD_AT_STATION_2",
-      "label": "Degreasing",
+      "label": "Soak Cleaner",
       "type": "uint16",
       "address": "D702"
     },
     "3": {
       "name": "LOAD_AT_STATION_3",
-      "label": "Anodic Cleaning",
+      "label": "Electro Cleaner",
       "type": "uint16",
       "address": "D703"
     },
     "4": {
       "name": "LOAD_AT_STATION_4",
-      "label": "Water Rinse",
+      "label": "Rinse 1",
       "type": "uint16",
       "address": "D704"
     },
     "5": {
       "name": "LOAD_AT_STATION_5",
-      "label": "Cascade Rinse",
+      "label": "Rinse 2 (Counterflow)",
       "type": "uint16",
       "address": "D705"
     },
     "6": {
       "name": "LOAD_AT_STATION_6",
-      "label": "Acid Pickling/ up down op",
+      "label": "HCl Pickle",
       "type": "uint16",
       "address": "D706"
     },
     "7": {
       "name": "LOAD_AT_STATION_7",
-      "label": "Acid Dip",
+      "label": "Rinse 3",
       "type": "uint16",
       "address": "D707"
     },
     "8": {
       "name": "LOAD_AT_STATION_8",
-      "label": "Water Rinse",
+      "label": "Rinse 4 (Counterflow)",
       "type": "uint16",
       "address": "D708"
     },
     "9": {
       "name": "LOAD_AT_STATION_9",
-      "label": "Cascade Rinse",
+      "label": "Acid Activation",
       "type": "uint16",
       "address": "D709"
     },
     "10": {
       "name": "LOAD_AT_STATION_10",
-      "label": "Activation",
+      "label": "Pre-Dip",
       "type": "uint16",
       "address": "D710"
     },
     "11": {
       "name": "LOAD_AT_STATION_11",
-      "label": "Alkaline Zn-Ni Plating 1",
+      "label": "Zn-Ni Plating Cell 1",
       "type": "uint16",
       "address": "D711"
     },
     "12": {
       "name": "LOAD_AT_STATION_12",
-      "label": "Alkaline Zn-Ni Plating 2",
+      "label": "Zn-Ni Plating Cell 2",
       "type": "uint16",
       "address": "D712"
     },
     "13": {
       "name": "LOAD_AT_STATION_13",
-      "label": "Alkaline Zn-Ni Plating 3",
+      "label": "Zn-Ni Plating Cell 3",
       "type": "uint16",
       "address": "D713"
     },
     "14": {
       "name": "LOAD_AT_STATION_14",
-      "label": "Alkaline Zn-Ni Plating 4",
+      "label": "Zn-Ni Plating Cell 4",
       "type": "uint16",
       "address": "D714"
     },
     "15": {
       "name": "LOAD_AT_STATION_15",
-      "label": "Alkaline Zn-Ni Plating 5",
+      "label": "Zn-Ni Plating Cell 5",
       "type": "uint16",
       "address": "D715"
     },
     "16": {
       "name": "LOAD_AT_STATION_16",
-      "label": "Alkaline Zn-Ni Plating 6",
+      "label": "Zn-Ni Plating Cell 6",
       "type": "uint16",
       "address": "D716"
     },
     "17": {
       "name": "LOAD_AT_STATION_17",
-      "label": "Alkaline Zn-Ni Plating 7",
+      "label": "Zn-Ni Plating Cell 7",
       "type": "uint16",
       "address": "D717"
     },
     "18": {
       "name": "LOAD_AT_STATION_18",
-      "label": "Alkaline Zn-Ni Plating 8",
+      "label": "Zn-Ni Plating Cell 8",
       "type": "uint16",
       "address": "D718"
     },
     "19": {
       "name": "LOAD_AT_STATION_19",
-      "label": "Dragout",
+      "label": "Dragout Recovery",
       "type": "uint16",
       "address": "D719"
     },
     "20": {
       "name": "LOAD_AT_STATION_20",
-      "label": "Single Rinse",
+      "label": "Final Rinse A",
       "type": "uint16",
       "address": "D720"
     },
     "21": {
       "name": "LOAD_AT_STATION_21",
-      "label": "CS- Barrel to Basket Unloading",
+      "label": "Unloading Bay A",
       "type": "uint16",
       "address": "D721"
     },
     "22": {
       "name": "LOAD_AT_STATION_22",
-      "label": "CS- Basket Loading",
+      "label": "Loading Bay B",
       "type": "uint16",
       "address": "D722"
     },
     "23": {
       "name": "LOAD_AT_STATION_23",
-      "label": "HCL Dip",
+      "label": "Nitric Activation",
       "type": "uint16",
       "address": "D723"
     },
     "24": {
       "name": "LOAD_AT_STATION_24",
-      "label": "Cascade Rinse",
+      "label": "Rinse 5",
       "type": "uint16",
       "address": "D724"
     },
     "25": {
       "name": "LOAD_AT_STATION_25",
-      "label": "Water Rinse",
+      "label": "Rinse 6 (Counterflow)",
       "type": "uint16",
       "address": "D725"
     },
     "26": {
       "name": "LOAD_AT_STATION_26",
-      "label": "Nitric Acid Dip",
+      "label": "Acid Brightener Dip",
       "type": "uint16",
       "address": "D726"
     },
     "27": {
       "name": "LOAD_AT_STATION_27",
-      "label": "Cascade Rinse",
+      "label": "Rinse 7",
       "type": "uint16",
       "address": "D727"
     },
     "28": {
       "name": "LOAD_AT_STATION_28",
-      "label": "Water Rinse",
+      "label": "Rinse 8 (Counterflow)",
       "type": "uint16",
       "address": "D728"
     },
     "29": {
       "name": "LOAD_AT_STATION_29",
-      "label": "Passivation -1 Silver",
+      "label": "Trivalent Passivation Blue",
       "type": "uint16",
       "address": "D729"
     },
     "30": {
       "name": "LOAD_AT_STATION_30",
-      "label": "Cascade Rinse",
+      "label": "Rinse 9",
       "type": "uint16",
       "address": "D730"
     },
     "31": {
       "name": "LOAD_AT_STATION_31",
-      "label": "Water Rinse",
+      "label": "Rinse 10 (Counterflow)",
       "type": "uint16",
       "address": "D731"
     },
     "32": {
       "name": "LOAD_AT_STATION_32",
-      "label": "Hot Water Rinse",
+      "label": "Hot Water Rinse 1",
       "type": "uint16",
       "address": "D732"
     },
     "33": {
       "name": "LOAD_AT_STATION_33",
-      "label": "Passivation -2 Black",
+      "label": "Trivalent Passivation Black",
       "type": "uint16",
       "address": "D733"
     },
     "34": {
       "name": "LOAD_AT_STATION_34",
-      "label": "Cascade Rinse",
+      "label": "Rinse 11",
       "type": "uint16",
       "address": "D734"
     },
     "35": {
       "name": "LOAD_AT_STATION_35",
-      "label": "Water Rinse",
+      "label": "Rinse 12 (Counterflow)",
       "type": "uint16",
       "address": "D735"
     },
     "36": {
       "name": "LOAD_AT_STATION_36",
-      "label": "Hot Water Rinse",
+      "label": "Hot Water Rinse 2",
       "type": "uint16",
       "address": "D736"
     },
     "37": {
       "name": "LOAD_AT_STATION_37",
-      "label": "Single Rinse",
+      "label": "DI Water Rinse",
       "type": "uint16",
       "address": "D737"
     },
     "38": {
       "name": "LOAD_AT_STATION_38",
-      "label": "Basket Wash",
+      "label": "Warm DI Rinse",
       "type": "uint16",
       "address": "D738"
     },
     "39": {
       "name": "LOAD_AT_STATION_39",
-      "label": "Dehydrator",
+      "label": "Centrifuge Dehydrator",
       "type": "uint16",
       "address": "D739"
     },
     "40": {
       "name": "LOAD_AT_STATION_40",
-      "label": "Top Coat- 1",
+      "label": "Top Coat Sealer 1",
       "type": "uint16",
       "address": "D740"
     },
     "41": {
       "name": "LOAD_AT_STATION_41",
-      "label": "Top Coat- 2",
+      "label": "Top Coat Sealer 2",
       "type": "uint16",
       "address": "D741"
     },
     "42": {
       "name": "LOAD_AT_STATION_42",
-      "label": "Dryer",
+      "label": "Hot Air Dryer",
       "type": "uint16",
       "address": "D742"
     },
     "43": {
       "name": "LOAD_AT_STATION_43",
-      "label": "Unloading",
+      "label": "Unloading Bay B",
       "type": "uint16",
       "address": "D743"
     }

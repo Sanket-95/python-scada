@@ -1,0 +1,262 @@
+{
+  "report_id": "RPT-TRAC-20250819-9213D3",
+  "report": "traceability",
+  "title": "Batch Traceability Report",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "query": "PB-250819-02",
+    "kind": "process batch"
+  },
+  "rows": [
+    {
+      "title": "PB-250819-02",
+      "nodes": [
+        {
+          "stage": "Processing equipment",
+          "id": "LINE-01 (PAST-01 / HOMO-01 / COOL-01)",
+          "time": "2025-08-19T07:37:00",
+          "detail": "11,836 L batch",
+          "status": "ok"
+        },
+        {
+          "stage": "Pasteurization record",
+          "id": "PB-250819-02",
+          "time": "2025-08-19T08:48:00",
+          "detail": "REVIEW REQUIRED · On hold — QA review",
+          "status": "review"
+        },
+        {
+          "stage": "Packaging line",
+          "id": "PACK-02",
+          "time": "2025-08-19T08:58:00",
+          "detail": "4,659 × 1000 mL accepted, 52 rejected",
+          "status": "ok"
+        },
+        {
+          "stage": "Finished-product batch",
+          "id": "FG-250819-02-05",
+          "time": "2025-08-19T10:05:18",
+          "detail": "4,659 L · On hold — QA review",
+          "status": "ok"
+        },
+        {
+          "stage": "Cold storage",
+          "id": "CS-01",
+          "time": "2025-08-19T10:16:18",
+          "detail": "Received in cold store",
+          "status": "ok"
+        },
+        {
+          "stage": "Dispatch",
+          "id": null,
+          "time": null,
+          "detail": "Held — batch not released",
+          "status": "pending"
+        },
+        {
+          "stage": "Packaging line",
+          "id": "PACK-01",
+          "time": "2025-08-19T08:58:00",
+          "detail": "14,068 × 500 mL accepted, 67 rejected",
+          "status": "ok"
+        },
+        {
+          "stage": "Finished-product batch",
+          "id": "FG-250819-01-04",
+          "time": "2025-08-19T10:55:48",
+          "detail": "7,034 L · On hold — QA review",
+          "status": "ok"
+        },
+        {
+          "stage": "Cold storage",
+          "id": "CS-01",
+          "time": "2025-08-19T11:14:56",
+          "detail": "Received in cold store",
+          "status": "ok"
+        },
+        {
+          "stage": "Dispatch",
+          "id": null,
+          "time": null,
+          "detail": "Held — batch not released",
+          "status": "pending"
+        }
+      ]
+    }
+  ],
+  "pagination": null,
+  "columns": [],
+  "charts": {
+    "upstream": [
+      {
+        "lot": "RB-250818-09",
+        "litres": 4896.1,
+        "tank": "ST-COW-01",
+        "nodes": [
+          {
+            "stage": "Collection centre",
+            "id": "CC-03",
+            "time": "2025-08-18T15:38:14",
+            "detail": "Pimpalwadi Milk Society · supplier SUP-1005",
+            "status": "ok"
+          },
+          {
+            "stage": "Tanker",
+            "id": "TKR-018",
+            "time": "2025-08-18T18:39:30",
+            "detail": "5,761 L gross · Cow",
+            "status": "ok"
+          },
+          {
+            "stage": "Receiving sample",
+            "id": "SMP-250818-09",
+            "time": "2025-08-18T18:48:45",
+            "detail": "Within demo rules",
+            "status": "ok"
+          },
+          {
+            "stage": "Acceptance",
+            "id": "DLV-250818-09",
+            "time": "2025-08-18T19:11:48",
+            "detail": "Within demo rules: accepted 5,761 L, rejected 0 L",
+            "status": "ok"
+          },
+          {
+            "stage": "Reception tank",
+            "id": "RT-01",
+            "time": "2025-08-18T18:48:45",
+            "detail": "Unloaded 2025-08-18T18:48:45 → 2025-08-18T19:11:48",
+            "status": "ok"
+          },
+          {
+            "stage": "Transfer to silo",
+            "id": "ST-COW-01",
+            "time": "2025-08-18T19:14:48",
+            "detail": "via V-301, event TRF-250818-047",
+            "status": "ok"
+          }
+        ]
+      },
+      {
+        "lot": "RB-250818-10",
+        "litres": 2205.3,
+        "tank": "ST-COW-01",
+        "nodes": [
+          {
+            "stage": "Collection centre",
+            "id": "CC-01",
+            "time": "2025-08-18T18:11:04",
+            "detail": "Ambegaon Collection Centre · supplier SUP-1001",
+            "status": "ok"
+          },
+          {
+            "stage": "Tanker",
+            "id": "TKR-014",
+            "time": "2025-08-18T20:09:35",
+            "detail": "4,376 L gross · Cow",
+            "status": "ok"
+          },
+          {
+            "stage": "Receiving sample",
+            "id": "SMP-250818-10",
+            "time": "2025-08-18T20:19:29",
+            "detail": "Within demo rules",
+            "status": "ok"
+          },
+          {
+            "stage": "Acceptance",
+            "id": "DLV-250818-10",
+            "time": "2025-08-18T20:36:59",
+            "detail": "Within demo rules: accepted 4,376 L, rejected 0 L",
+            "status": "ok"
+          },
+          {
+            "stage": "Reception tank",
+            "id": "RT-01",
+            "time": "2025-08-18T20:19:29",
+            "detail": "Unloaded 2025-08-18T20:19:29 → 2025-08-18T20:36:59",
+            "status": "ok"
+          },
+          {
+            "stage": "Transfer to silo",
+            "id": "ST-COW-01",
+            "time": "2025-08-18T20:39:59",
+            "detail": "via V-301, event TRF-250818-051",
+            "status": "ok"
+          }
+        ]
+      },
+      {
+        "lot": "RB-250818-08",
+        "litres": 4734.3,
+        "tank": "ST-BUF-01",
+        "nodes": [
+          {
+            "stage": "Collection centre",
+            "id": "CC-01",
+            "time": "2025-08-18T13:44:18",
+            "detail": "Ambegaon Collection Centre · supplier SUP-1002",
+            "status": "ok"
+          },
+          {
+            "stage": "Tanker",
+            "id": "TKR-016",
+            "time": "2025-08-18T16:47:18",
+            "detail": "6,508 L gross · Buffalo",
+            "status": "ok"
+          },
+          {
+            "stage": "Receiving sample",
+            "id": "SMP-250818-08",
+            "time": "2025-08-18T17:00:38",
+            "detail": "Review required",
+            "status": "ok"
+          },
+          {
+            "stage": "Acceptance",
+            "id": "DLV-250818-08",
+            "time": "2025-08-18T17:26:40",
+            "detail": "Review required: accepted 6,508 L, rejected 0 L",
+            "status": "ok"
+          },
+          {
+            "stage": "Reception tank",
+            "id": "RT-01",
+            "time": "2025-08-18T17:00:38",
+            "detail": "Unloaded 2025-08-18T17:00:38 → 2025-08-18T17:26:40",
+            "status": "ok"
+          },
+          {
+            "stage": "Transfer to silo",
+            "id": "ST-BUF-01",
+            "time": "2025-08-18T17:29:40",
+            "detail": "via V-301, event TRF-250818-040",
+            "status": "ok"
+          }
+        ]
+      }
+    ],
+    "candidates": []
+  },
+  "notes": [
+    "Links come only from simulated records. A link that does not exist is shown as missing — never invented.",
+    "Raw lots merge in silos; FIFO draws record exactly which lots (and litres) each process batch used."
+  ]
+}

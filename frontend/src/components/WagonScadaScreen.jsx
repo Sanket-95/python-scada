@@ -1,6 +1,8 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { C } from '../config/scadaConfig';
 import { useWagonSimulation } from '../hooks/useWagonSimulation';
+import { processLook } from '../config/processLook';
+import { THEME, FONT_COND } from '../theme';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -14,13 +16,17 @@ function SvgDefs() {
   return (
     <defs>
       <pattern id="bgGrid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-        <path d="M40 0L0 0 0 40" fill="none" stroke={C.palette.grid} strokeWidth="0.5" />
+        <path d="M40 0L0 0 0 40" fill="none" stroke="rgba(30,40,50,0.05)" strokeWidth="1" />
+      </pattern>
+      <pattern id="hazard2d" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect width="10" height="10" fill="#F2B705" />
+        <rect width="5" height="10" fill="#1F262E" />
+      </pattern>
+      <pattern id="grating2d" width="6" height="6" patternUnits="userSpaceOnUse">
+        <rect width="6" height="6" fill="#2B3238" />
+        <rect width="3" height="6" fill="#4A535B" />
       </pattern>
 
-      <filter id="railGlow" x="-5%" y="-200%" width="110%" height="500%">
-        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b" />
-        <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-      </filter>
       <filter id="stGlow" x="-25%" y="-10%" width="150%" height="120%">
         <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b" />
         <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
@@ -29,16 +35,15 @@ function SvgDefs() {
         <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="b" />
         <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
       </filter>
-      <filter id="wGlow" x="-15%" y="-15%" width="130%" height="130%">
-        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b" />
-        <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-      </filter>
       <filter id="arrowGlow" x="-60%" y="-60%" width="220%" height="220%">
         <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b" />
         <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
       </filter>
+      <filter id="softShadow" x="-10%" y="-10%" width="120%" height="140%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="#161B22" floodOpacity="0.18" />
+      </filter>
 
-      {/* Chasing-wave animation for arm-direction arrows */}
+      {/* Chasing-wave animation for hoist-direction arrows */}
       <style>{`
         @keyframes arrowChase {
           0%,  35% { opacity: 0; }
@@ -50,33 +55,31 @@ function SvgDefs() {
         .ab-2 { animation: arrowChase 0.72s 0.48s infinite; }
       `}</style>
 
-      <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
-        <stop offset="0%"   stopColor="transparent" />
-        <stop offset="100%" stopColor="rgba(100,120,160,0.08)" />
-      </radialGradient>
-      <linearGradient id="hdrGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%"   stopColor="#DDE4F0" />
-        <stop offset="50%"  stopColor="#E8EDF8" />
-        <stop offset="100%" stopColor="#DDE4F0" />
+      {/* Polypropylene tank wall — lit from the left */}
+      <linearGradient id="tankWall" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0"    stopColor="#DCE1E5" />
+        <stop offset="0.45" stopColor="#C4CACF" />
+        <stop offset="1"    stopColor="#A9B1B8" />
       </linearGradient>
-
-      {/* Amber load gradient — arm bucket AND transit crate */}
-      <linearGradient id="loadGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%"   stopColor="#FFD54F" stopOpacity="0.95" />
-        <stop offset="100%" stopColor="#E65100" stopOpacity="0.85" />
+      {/* Hoist paint */}
+      <linearGradient id="hoistBody" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#F7C431" />
+        <stop offset="1" stopColor="#D9940A" />
       </linearGradient>
-
-      {/* Tank chemical fill — fixed blue */}
-      <linearGradient id="chemGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%"   stopColor={C.chemSurface} stopOpacity="0.9" />
-        <stop offset="8%"   stopColor={C.chemColor}   stopOpacity="0.95" />
-        <stop offset="100%" stopColor={C.chemColor}   stopOpacity="0.9" />
+      {/* Load (barrel/basket) — warm metal */}
+      <linearGradient id="loadMetal" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0"   stopColor="#F7B84A" />
+        <stop offset="0.5" stopColor="#E08A1E" />
+        <stop offset="1"   stopColor="#B4650E" />
       </linearGradient>
-
-      {/* Tank solid-load block */}
-      <linearGradient id="tankLoadGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%"   stopColor={C.loadHighlight} stopOpacity="0.9" />
-        <stop offset="100%" stopColor={C.loadColor}     stopOpacity="0.95" />
+      {/* Bath depth shading (overlaid on the bath colour) */}
+      <linearGradient id="bathShade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.18" />
+        <stop offset="1" stopColor="#000000" stopOpacity="0.28" />
+      </linearGradient>
+      <linearGradient id="beam2d" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#5A6672" />
+        <stop offset="1" stopColor="#36414B" />
       </linearGradient>
     </defs>
   );
@@ -89,254 +92,199 @@ function Background() {
     <>
       <rect width={C.svg.w} height={C.svg.h} fill={C.palette.bg} />
       <rect width={C.svg.w} height={C.svg.h} fill="url(#bgGrid)" />
-      <rect width={C.svg.w} height={C.svg.h} fill="url(#vignette)" />
     </>
   );
 }
 
-// ── Station (Tank) ────────────────────────────────────────────────────────────
-
-function Station({ st, trackCfg }) {
-  const { stationsTop, stationH, stationW } = trackCfg;
-  const hw    = stationW / 2;
-  const sx    = st.x - hw;
-  const isAct = st.isActive;
-
-  // Static blue fill — height never changes
-  const fillPx = Math.max(0, (st.fillLevel / 100) * (stationH - 6));
-  const fillY  = stationsTop + stationH - 3 - fillPx;
-
-  // Solid load block: occupies bottom 38% of tank
-  const loadH = Math.floor(stationH * 0.38);
-  const loadY = stationsTop + stationH - 3 - loadH;
-
+// ── Load drawn in side elevation (barrel / basket / rack) ─────────────────────
+function Load2D({ cx, cy, w, h, type = 'barrel' }) {
+  const x = cx - w / 2, y = cy - h / 2;
+  if (type === 'rack') {
+    return (
+      <g>
+        <rect x={x} y={y} width={w} height={2.5} fill="#2B3238" />
+        {[0.2, 0.4, 0.6, 0.8].map(f => (
+          <line key={f} x1={x + 2} y1={y + h * f} x2={x + w - 2} y2={y + h * f} stroke="#E08A1E" strokeWidth="1.6" />
+        ))}
+        <line x1={x + 1} y1={y} x2={x + 1} y2={y + h} stroke="#9AA4AD" strokeWidth="1.6" />
+        <line x1={x + w - 1} y1={y} x2={x + w - 1} y2={y + h} stroke="#9AA4AD" strokeWidth="1.6" />
+      </g>
+    );
+  }
+  if (type === 'basket') {
+    return (
+      <g>
+        <rect x={x} y={y} width={w} height={h} rx="2" fill="url(#loadMetal)" stroke="#7A4A0A" strokeWidth="1" />
+        {[0.25, 0.5, 0.75].map(f => (
+          <line key={f} x1={x + w * f} y1={y + 1} x2={x + w * f} y2={y + h - 1} stroke="#7A4A0A" strokeWidth="0.8" opacity="0.6" />
+        ))}
+        <line x1={x} y1={y + h / 2} x2={x + w} y2={y + h / 2} stroke="#7A4A0A" strokeWidth="0.8" opacity="0.6" />
+      </g>
+    );
+  }
   return (
     <g>
-      {/* Active glow */}
-      {isAct && (
-        <rect x={sx - 5} y={stationsTop - 5} width={stationW + 10} height={stationH + 10}
-          fill="none" stroke={C.palette.accent} strokeWidth="2" rx="3"
-          opacity="0.35" filter="url(#stGlow)" />
-      )}
-
-      {/* Outer border — clearly visible, gives tank its boxy look */}
-      <rect x={sx - 1} y={stationsTop - 1} width={stationW + 2} height={stationH + 2}
-        fill="none"
-        stroke={isAct ? C.palette.accent : '#4872A8'}
-        strokeWidth={isAct ? 2 : 1.5} rx="2.5" />
-
-      {/* Tank body */}
-      <rect x={sx} y={stationsTop} width={stationW} height={stationH}
-        fill="#7A8E9E" rx="1.5" />
-
-      {/* Static chemical fill (blue, never animates) */}
-      {fillPx > 0 && (
-        <rect x={sx + 1} y={fillY} width={stationW - 2} height={fillPx}
-          fill="url(#chemGrad)" rx="0.5" />
-      )}
-
-      {/* Load block — bright orange square box at tank bottom */}
-      {st.hasLoad && (
-        <g>
-          {/* Outer glow */}
-          <rect x={sx + 1} y={loadY - 1} width={stationW - 2} height={loadH + 2}
-            fill="#FF6D00" rx="1" opacity="0.25" />
-          {/* Main box — solid bright orange, yellow border */}
-          <rect x={sx + 2} y={loadY} width={stationW - 4} height={loadH}
-            fill="#FF5722" stroke="#FFD740" strokeWidth="1.5" rx="1" />
-          {/* Top shine */}
-          <rect x={sx + 3} y={loadY + 1} width={stationW - 6} height={4}
-            fill="#FF8A65" rx="0.5" opacity="0.8" />
-        </g>
-      )}
-
-      {/* Mid-level tick */}
-      <line x1={sx + 2} y1={stationsTop + stationH / 2}
-            x2={sx + stationW - 2} y2={stationsTop + stationH / 2}
-        stroke="#5A6A78" strokeWidth="0.5" strokeDasharray="1.5,2.5" />
-
-      {/* Inner lip */}
-      <rect x={sx + 1} y={stationsTop + 1} width={stationW - 2} height={stationH - 2}
-        fill="none" stroke="#8A9EAE" strokeWidth="0.5" rx="1" />
-
-      {/* Inlet nozzle */}
-      <rect x={st.x - 4} y={stationsTop - 7}  width="8" height="8"
-        fill={isAct ? C.palette.accent : '#3A6090'} rx="1" />
-      <rect x={st.x - 2} y={stationsTop - 11} width="4" height="5"
-        fill={isAct ? C.palette.accent : '#2E5080'} rx="1" />
-
-      {/* Support legs — tank doesn't sit flush on the ground */}
-      <rect x={sx + 2}            y={stationsTop + stationH} width="3" height="6" fill="#4A5A6A" />
-      <rect x={sx + stationW - 5} y={stationsTop + stationH} width="3" height="6" fill="#4A5A6A" />
+      <rect x={x} y={y} width={w} height={h} rx={h * 0.32} fill="url(#loadMetal)" stroke="#7A4A0A" strokeWidth="1" />
+      {[0.22, 0.5, 0.78].map(f => (
+        <line key={f} x1={x + w * f} y1={y + 1} x2={x + w * f} y2={y + h - 1} stroke="#7A4A0A" strokeWidth="1.2" opacity="0.55" />
+      ))}
+      <rect x={x + 3} y={y + 2} width={w - 6} height={2} rx="1" fill="#FFFFFF" opacity="0.35" />
     </g>
   );
 }
 
-// ── Wagon Arm ─────────────────────────────────────────────────────────────────
-// Two visual modes:
-//   (A) arm extended  → full arm shaft + bucket at tip
-//   (B) arm retracted + wagon carrying load → compact amber crate hanging below wagon
+// ── Station (Tank) ────────────────────────────────────────────────────────────
+// Side elevation with the near wall cut away: wall, rim flange, bath (colour by
+// process), the load when one is in, skid base and a floor plinth.
 
-function WagonArm({ wagon, trackCfg }) {
-  const { railY, railH, stationsTop, armMaxLen } = trackCfg;
+function TankChamber({ st, cx, innerW, top, h, label, idx, loadType }) {
+  const look = processLook(label, idx);
+  const bathTop = top + h * 0.18 - Math.min(Math.max(st.fillLevel, 0), 100) / 100 * h * 0.06;
+  const ix = cx - innerW / 2;
+  const loadW = Math.min(innerW * 0.78, 34), loadH = Math.max(h * 0.3, 14);
+  const gratingY = top + h * 0.58;
+  const loadCy = look.dry ? gratingY - loadH / 2 - 1 : bathTop + loadH * 0.25;
+  return (
+    <g>
+      <rect x={ix} y={top} width={innerW} height={h} fill="#262D34" />
+      {look.dry ? (
+        <>
+          {look.hot && <rect x={ix} y={gratingY} width={innerW} height={top + h - gratingY} fill="#FF6A1A" opacity="0.35" />}
+          <rect x={ix} y={gratingY} width={innerW} height="4" fill="url(#grating2d)" />
+        </>
+      ) : (
+        <>
+          <rect x={ix} y={bathTop} width={innerW} height={top + h - bathTop} fill={look.bath} opacity={Math.max(look.opacity, 0.75)} />
+          <rect x={ix} y={bathTop} width={innerW} height={top + h - bathTop} fill="url(#bathShade)" />
+          <line x1={ix} y1={bathTop + 0.5} x2={ix + innerW} y2={bathTop + 0.5} stroke="#FFFFFF" strokeOpacity="0.55" strokeWidth="1.2" />
+        </>
+      )}
+      {st.hasLoad && <Load2D cx={cx} cy={loadCy} w={loadW} h={loadH} type={loadType} />}
+    </g>
+  );
+}
+
+function TankShell2D({ x1, x2, top, h, active }) {
+  const w = x2 - x1;
+  return (
+    <g filter="url(#softShadow)">
+      {active && (
+        <rect x={x1 - 5} y={top - 5} width={w + 10} height={h + 10} rx="5"
+          fill="none" stroke={THEME.accent} strokeWidth="2.5" opacity="0.5" filter="url(#stGlow)" />
+      )}
+      {/* Skid + plinth */}
+      <rect x={x1 + 2} y={top + h} width={w - 4} height="5" fill="#2B3238" />
+      <rect x={x1 - 3} y={top + h + 5} width={w + 6} height="3" rx="1" fill="#8A9196" />
+      {/* Walls */}
+      <rect x={x1} y={top} width={w} height={h} rx="2" fill="url(#tankWall)" stroke="#7D8791" strokeWidth="1" />
+      {/* Rim flange */}
+      <rect x={x1 - 2.5} y={top - 3} width={w + 5} height="5" rx="1.5"
+        fill={active ? THEME.accent : '#8E979F'} stroke={active ? THEME.accentDark : '#6B747C'} strokeWidth="0.8" />
+      {/* Reinforcing bands */}
+      <rect x={x1 - 1} y={top + h * 0.3} width={w + 2} height="2.5" fill="#59626B" />
+      <rect x={x1 - 1} y={top + h * 0.72} width={w + 2} height="2.5" fill="#59626B" />
+    </g>
+  );
+}
+
+function Station({ st, trackCfg, label, idx, loadType }) {
+  const { stationsTop, stationH, stationW } = trackCfg;
+  const hw = stationW / 2;
+  const WALL = 3;
+  return (
+    <g>
+      <TankShell2D x1={st.x - hw} x2={st.x + hw} top={stationsTop} h={stationH} active={st.isActive} />
+      <TankChamber st={st} cx={st.x} innerW={stationW - 2 * WALL} top={stationsTop + 2} h={stationH - WALL - 2}
+        label={label} idx={idx} loadType={loadType} />
+    </g>
+  );
+}
+
+// ── Hoist (wire ropes + carrier bar + load) ───────────────────────────────────
+// Hook height follows the hoist's extension (dipping into a tank) or sits at
+// transit height when carrying; the load is drawn only while the wagon holds it.
+
+function WagonArm({ wagon, trackCfg, loadType }) {
+  const { railY, railH, armMaxLen } = trackCfg;
   const wagonBottom = railY + railH + C.wagon.h;
   const cx          = wagon.x;
   const hasLoad     = wagon.loadPercent > 50;
   const isExtended  = wagon.armExtension > 0.02;
 
-  if (!isExtended && !hasLoad) return null;
-
-  // ── Mode B: compact transit crate ────────────────────────────────────────
-  if (!isExtended && hasLoad) {
-    const chainLen = 11;
-    const crateW   = 24;
-    const crateH   = 16;
-    const crateTop = wagonBottom + chainLen;
-
-    return (
-      <g>
-        {/* Chain */}
-        <line x1={cx} y1={wagonBottom} x2={cx} y2={crateTop}
-          stroke="#6090C0" strokeWidth="2.5" strokeLinecap="round" />
-        <circle cx={cx} cy={wagonBottom + 4} r="2.5"
-          fill="none" stroke="#70A0D0" strokeWidth="1.2" />
-
-        {/* Crate body */}
-        <rect x={cx - crateW / 2} y={crateTop} width={crateW} height={crateH}
-          fill="url(#loadGrad)" stroke={C.loadHighlight} strokeWidth="1.5" rx="2.5" />
-
-        {/* Crate lid highlight */}
-        <rect x={cx - crateW / 2 + 2} y={crateTop + 1} width={crateW - 4} height={3}
-          fill="#FFD54F" rx="0.5" opacity="0.55" />
-
-        {/* Crate braces */}
-        <line x1={cx - crateW / 2 + 2} y1={crateTop + 7}
-              x2={cx + crateW / 2 - 2} y2={crateTop + 7}
-          stroke={C.loadHighlight} strokeWidth="0.8" opacity="0.5" />
-        <line x1={cx} y1={crateTop + 2} x2={cx} y2={crateTop + crateH - 2}
-          stroke={C.loadHighlight} strokeWidth="0.8" opacity="0.35" />
-      </g>
-    );
-  }
-
-  // ── Mode A: full arm extended/retracting ──────────────────────────────────
-  const armLen        = armMaxLen * wagon.armExtension;
-  const tipY          = wagonBottom + armLen;
-  const bucketHasLoad = wagon.loadPercent > 5;
-  const showDrip      = wagon.status === 'arm_extending_unload' && wagon.armExtension > 0.55;
+  const hookDrop = isExtended ? armMaxLen * wagon.armExtension : (hasLoad ? 12 : 3);
+  const barY  = wagonBottom + hookDrop;
+  const loadW = 30, loadH = 18;
 
   return (
     <g>
-      {/* Arm shaft */}
-      <line x1={cx} y1={wagonBottom} x2={cx} y2={tipY - 9}
-        stroke="#4472B0" strokeWidth="2.2" strokeLinecap="round" />
-
-      {/* Pivot ball */}
-      <circle cx={cx} cy={wagonBottom} r="3.5"
-        fill="#5A80B0" stroke="#70A0CC" strokeWidth="0.8" />
-
-      {/* Bucket */}
-      <path d={`M${cx - 8},${tipY - 9} L${cx - 10},${tipY + 7}
-                L${cx + 10},${tipY + 7} L${cx + 8},${tipY - 9} Z`}
-        fill={bucketHasLoad ? '#6880A0' : '#8AA0B8'}
-        stroke={bucketHasLoad ? '#FFA000' : '#6090B8'} strokeWidth="1.2" />
-
-      {/* Load material in bucket */}
-      {bucketHasLoad && (
+      {/* Wire ropes */}
+      <line x1={cx - 6} y1={wagonBottom} x2={cx - 6} y2={barY} stroke="#1D2125" strokeWidth="1.4" />
+      <line x1={cx + 6} y1={wagonBottom} x2={cx + 6} y2={barY} stroke="#1D2125" strokeWidth="1.4" />
+      {/* Carrier bar */}
+      <rect x={cx - 17} y={barY} width="34" height="4" rx="1.5" fill="url(#hoistBody)" stroke="#8A6200" strokeWidth="0.6" />
+      {hasLoad && (
         <>
-          <rect x={cx - 8} y={tipY - 3} width="16" height={9}
-            fill="url(#loadGrad)" rx="1" opacity="0.9" />
-          <line x1={cx - 7} y1={tipY - 1} x2={cx + 7} y2={tipY - 1}
-            stroke="#FFD54F" strokeWidth="1" opacity="0.6" />
-        </>
-      )}
-
-      {/* Pour drip during unloading */}
-      {showDrip && (
-        <>
-          <line x1={cx} y1={tipY + 7} x2={cx} y2={stationsTop + 12}
-            stroke="#FFA000" strokeWidth="2" opacity="0.5"
-            strokeDasharray="2,3" />
-          <ellipse cx={cx} cy={stationsTop + 15} rx="4" ry="2.5"
-            fill="#FFA000" opacity="0.65" />
+          <line x1={cx - 13} y1={barY + 4} x2={cx - 13} y2={barY + 7} stroke="#8A6200" strokeWidth="2" />
+          <line x1={cx + 13} y1={barY + 4} x2={cx + 13} y2={barY + 7} stroke="#8A6200" strokeWidth="2" />
+          <Load2D cx={cx} cy={barY + 7 + loadH / 2} w={loadW} h={loadH} type={loadType} />
         </>
       )}
     </g>
   );
 }
 
-// ── Hanging Wagon ─────────────────────────────────────────────────────────────
+// ── Hoist trolley on the runway ───────────────────────────────────────────────
+
+const MODE_COLOR_2D = { auto: '#3FB97A', manual: '#F59E0B', service: '#3B9BEA' };
 
 function Wagon({ wagon, trackCfg }) {
   const { railY, railH } = trackCfg;
   const ww    = C.wagon.w;
   const wh    = C.wagon.h;
   const wx    = wagon.x - ww / 2;
-  const wyTop = railY + railH;   // wagon hangs: top = rail bottom
-
-  const led     = C.statusColors[wagon.status] || '#546E7A';
-  const bStroke =
-    wagon.status.startsWith('arm_')       ? '#FF6D00'
-    : wagon.status === 'moving_to_dest'   ? '#FFA000'
-    : wagon.status === 'idle'             ? C.palette.panelBorder
-    : C.palette.accent;
-
-  const isEmpty = wagon.loadPercent < 10;
+  const wyTop = railY + railH;   // body hangs from the rail
+  const led   = C.statusColors[wagon.status] || '#7D8793';
+  const mode  = wagon.mode && MODE_COLOR_2D[wagon.mode];
+  const blinkOn = Math.floor(Date.now() / 450) % 2 === 0;
+  const tag = `W${wagon.id}${wagon.mode ? '-' + wagon.mode[0].toUpperCase() : ''}`;
+  const plateW = 16 + tag.length * 7.2;
 
   return (
-    <g filter={wagon.status !== 'idle' ? 'url(#wGlow)' : undefined}>
+    <g>
+      {/* ID plate above the runway */}
+      <rect x={wagon.x - plateW / 2} y={railY - 27} width={plateW} height="17" rx="4" fill="#1F262E" />
+      <rect x={wagon.x - plateW / 2} y={railY - 27} width="4" height="17" rx="2" fill={mode || THEME.accent} />
+      <text x={wagon.x + 2} y={railY - 14.5} textAnchor="middle" fill="#FFFFFF" fontSize="13"
+        fontFamily={FONT_COND} fontWeight="700" letterSpacing="0.5">{tag}</text>
 
-      {/* Wagon number floating above rail — no box, plain text only.
-          Sits a touch further above the rail (railY - 10) to keep a small
-          top margin above the wagon now that the text is bigger/bolder. */}
-      <text x={wagon.x} y={railY - 10} textAnchor="middle"
-        fill={led} fontSize="14" fontFamily="monospace" fontWeight="900">
-        W{wagon.id}
-      </text>
+      {/* Wheels on the rail head */}
+      {[-11, 11].map(dx => (
+        <g key={dx}>
+          <circle cx={wagon.x + dx} cy={railY - 3} r="5" fill="#15181C" />
+          <circle cx={wagon.x + dx} cy={railY - 3} r="1.8" fill="#9AA4AD" />
+        </g>
+      ))}
+      {/* Side plates wrapping the beam */}
+      <rect x={wx + 3} y={railY - 4} width={ww - 6} height={railH + 6} rx="2" fill="url(#hoistBody)" stroke="#8A6200" strokeWidth="0.8" opacity="0.92" />
 
-      {/* Rail roller clamps */}
-      <rect x={wx + 4}      y={railY - 1} width={ww - 8}  height={railH + 2} fill="#6A7E92" rx="1" />
-      <rect x={wx + 7}      y={railY + 1} width={ww - 14} height={railH - 2} fill="#A8C0D4" rx="0.5" />
-      <rect x={wx + 4}      y={railY - 1} width="5" height={railH + 2} fill="#7A90A4" rx="1" />
-      <rect x={wx + ww - 9} y={railY - 1} width="5" height={railH + 2} fill="#7A90A4" rx="1" />
-
-      {/* Hanger stub */}
-      <rect x={wagon.x - 2} y={railY + railH} width="4" height="4" fill="#8090A8" />
-
-      {/* Wagon body — empty wagon is slightly dimmer, loaded is brighter */}
-      <rect x={wx} y={wyTop} width={ww} height={wh}
-        fill={isEmpty ? '#5A6E82' : '#4A6090'}
-        stroke={bStroke} strokeWidth="1.4" rx="2" />
-
-      {/* Open-top edge */}
-      <line x1={wx + 2} y1={wyTop} x2={wx + ww - 2} y2={wyTop}
-        stroke={bStroke} strokeWidth="2" />
-
-      {/* Interior ribbing */}
-      <line x1={wx + 9}      y1={wyTop + 4} x2={wx + 9}      y2={wyTop + wh - 4}
-        stroke="#8090A8" strokeWidth="0.8" />
-      <line x1={wx + ww - 9} y1={wyTop + 4} x2={wx + ww - 9} y2={wyTop + wh - 4}
-        stroke="#8090A8" strokeWidth="0.8" />
-
-      {/* Wagon number inside body */}
-      <text x={wagon.x} y={wyTop + 16} textAnchor="middle"
-        fill="#FFFFFF" fontSize="10"
-        fontFamily="monospace" fontWeight="900">
-        W{wagon.id}
-      </text>
-
-      {/* Status LED */}
-      <circle cx={wx + ww - 6} cy={wyTop + 7} r="3"
-        fill={led} filter="url(#ledGlow)" />
+      {/* Hoist body */}
+      <rect x={wx} y={wyTop} width={ww} height={wh} rx="3" fill="url(#hoistBody)" stroke="#8A6200" strokeWidth="1" />
+      <rect x={wx + 1} y={wyTop + wh - 6} width={ww - 2} height="5" fill="url(#hazard2d)" />
+      {/* Motor */}
+      <rect x={wx + 4} y={wyTop + 4} width="14" height="10" rx="2" fill="#5E6A75" />
+      <rect x={wx + 17} y={wyTop + 6} width="2.5" height="6" fill="#2B3238" />
+      {/* Status + mode LEDs */}
+      <circle cx={wx + ww - 7} cy={wyTop + 7} r="2.8" fill={led} filter="url(#ledGlow)" />
+      <circle cx={wx + ww - 7} cy={wyTop + 15} r="2.8"
+        fill={mode ? (blinkOn ? mode : '#3A4248') : '#3A4248'} filter={mode && blinkOn ? 'url(#ledGlow)' : undefined} />
     </g>
   );
 }
 
-// ── Arm-direction blinking arrows (2-D SVG) ───────────────────────────────────
+// ── Hoist-direction blinking arrows (2-D SVG) ─────────────────────────────────
 
 function WagonDirectionArrows({ wagon, trackCfg }) {
   const { railY, railH } = trackCfg;
-  const ww    = C.wagon.w;
   const wyTop = railY + railH;
   const wyMid = wyTop + C.wagon.h / 2;
 
@@ -345,17 +293,17 @@ function WagonDirectionArrows({ wagon, trackCfg }) {
 
   if (!isDown && !isUp) return null;
 
-  const color = isDown ? '#FF4010' : '#10FF70';
-  const cx    = wagon.x;   // centred on wagon body
-  const STEP  = 10;
+  const color = isDown ? '#E5534B' : '#3FB97A';
+  const cx    = wagon.x + C.wagon.w / 2 + 12;   // beside the body, not over it
+  const STEP  = 9;
 
   const ys = isDown
     ? [wyMid - STEP, wyMid, wyMid + STEP]
     : [wyMid + STEP, wyMid, wyMid - STEP];
 
   const arrow = cy => isDown
-    ? `M${cx - 7},${cy - 5} L${cx + 7},${cy - 5} L${cx},${cy + 5} Z`
-    : `M${cx - 7},${cy + 5} L${cx + 7},${cy + 5} L${cx},${cy - 5} Z`;
+    ? `M${cx - 6},${cy - 4} L${cx + 6},${cy - 4} L${cx},${cy + 4} Z`
+    : `M${cx - 6},${cy + 4} L${cx + 6},${cy + 4} L${cx},${cy - 4} Z`;
 
   return (
     <g filter="url(#arrowGlow)">
@@ -372,7 +320,7 @@ function WagonDirectionArrows({ wagon, trackCfg }) {
 
 function StationTooltip({ info }) {
   if (!info) return null;
-  const { st, trackCfg } = info;
+  const { st, trackCfg, label } = info;
   const meta = getTempMeta(st.temperature);
   const w = 270, h = 190, headerH = 40, rowStep = 32;
   const NOTCH_H = 10, NOTCH_W = 18, EDGE_PAD = 8, NOTCH_MARGIN = 20; // keeps notch off the rounded corners
@@ -392,7 +340,7 @@ function StationTooltip({ info }) {
   const notchX = Math.min(Math.max(st.x, tx + NOTCH_MARGIN), tx + w - NOTCH_MARGIN);
 
   const rows = [
-    ['Fill',   `${st.fillLevel.toFixed(0)} %`],
+    ['Tank',   `${trackCfg.label} · No. ${st.label}`],
     ['Temp',   `${st.temperature.toFixed(1)} °C  ·  ${meta.label}`],
     ['Load',   st.hasLoad ? 'YES' : 'NO'],
     ['Status', st.isActive ? 'ACTIVE' : 'IDLE'],
@@ -405,7 +353,7 @@ function StationTooltip({ info }) {
   // colored header strip, so the fill there matches the header instead.
   const boxEdgeY   = above ? ty + h : ty;
   const notchTipY  = above ? boxEdgeY + NOTCH_H : boxEdgeY - NOTCH_H;
-  const notchFill  = above ? '#12203A' : meta.color;
+  const notchFill  = above ? '#1F262E' : '#161B22';
   const notchFillPath = above
     ? `M${notchX - NOTCH_W / 2},${boxEdgeY - 2} L${notchX},${notchTipY} L${notchX + NOTCH_W / 2},${boxEdgeY - 2} Z`
     : `M${notchX - NOTCH_W / 2},${boxEdgeY + 2} L${notchX},${notchTipY} L${notchX + NOTCH_W / 2},${boxEdgeY + 2} Z`;
@@ -413,21 +361,22 @@ function StationTooltip({ info }) {
   return (
     <g style={{ pointerEvents: 'none' }}>
       <rect x={tx} y={ty} width={w} height={h} rx="8"
-        fill="#12203A" stroke={meta.color} strokeWidth="1.8" opacity="0.98" />
-      <rect x={tx} y={ty} width={w} height={headerH} rx="8" fill={meta.color} opacity="0.92" />
-      <rect x={tx} y={ty + headerH - 8} width={w} height="8" fill={meta.color} opacity="0.92" />
+        fill="#1F262E" stroke="#3A444F" strokeWidth="1.2" opacity="0.98" />
+      <rect x={tx} y={ty} width={w} height={headerH} rx="8" fill="#161B22" />
+      <rect x={tx} y={ty + headerH - 8} width={w} height="8" fill="#161B22" />
+      <rect x={tx} y={ty + 8} width="5" height={headerH - 16} fill={meta.color} />
       <path d={notchFillPath} fill={notchFill} opacity="0.98" />
-      <path d={`M${notchX - NOTCH_W / 2},${boxEdgeY} L${notchX},${notchTipY}`} fill="none" stroke={meta.color} strokeWidth="1.8" strokeLinecap="round" />
-      <path d={`M${notchX + NOTCH_W / 2},${boxEdgeY} L${notchX},${notchTipY}`} fill="none" stroke={meta.color} strokeWidth="1.8" strokeLinecap="round" />
+      <path d={`M${notchX - NOTCH_W / 2},${boxEdgeY} L${notchX},${notchTipY}`} fill="none" stroke="#3A444F" strokeWidth="1.2" strokeLinecap="round" />
+      <path d={`M${notchX + NOTCH_W / 2},${boxEdgeY} L${notchX},${notchTipY}`} fill="none" stroke="#3A444F" strokeWidth="1.2" strokeLinecap="round" />
       <text x={tx + w / 2} y={ty + 26} textAnchor="middle" fill="#FFFFFF" fontSize="16"
-        fontFamily="monospace" fontWeight="bold" letterSpacing="1">
-        {trackCfg.label} · TANK {st.label}
+        fontFamily="inherit" fontWeight="bold" letterSpacing="1">
+        {label || `${trackCfg.label} · TANK ${st.label}`}
       </text>
       {rows.map(([label, value], i) => (
         <g key={label}>
-          <text x={tx + 18} y={ty + headerH + 28 + i * rowStep} fill="#AFC4E0" fontSize="14.5" fontFamily="monospace">{label}</text>
+          <text x={tx + 18} y={ty + headerH + 28 + i * rowStep} fill="#AFC4E0" fontSize="14.5" fontFamily="inherit">{label}</text>
           <text x={tx + w - 18} y={ty + headerH + 28 + i * rowStep} textAnchor="end" fill="#FFFFFF" fontSize="15"
-            fontFamily="monospace" fontWeight="bold">{value}</text>
+            fontFamily="inherit" fontWeight="bold">{value}</text>
         </g>
       ))}
     </g>
@@ -439,81 +388,40 @@ function StationTooltip({ info }) {
 // its own fill bar, load block, and inlet nozzle at its own position,
 // separated by a thin divider — same station data as a solo Station, only the
 // outer housing (and the gap between chambers) is drawn differently.
-function StationGroup({ groupStations, trackCfg }) {
+function StationGroup({ groupStations, trackCfg, labels = {}, loadType }) {
   const { stationsTop, stationH, stationW } = trackCfg;
   const xs = groupStations.map(st => st.x);
   const pitch = xs.length > 1 ? xs[1] - xs[0] : stationW * 1.3;
   const shellX1 = xs[0] - stationW / 2;
   const shellX2 = xs[xs.length - 1] + stationW / 2;
-  const shellW = shellX2 - shellX1;
   const anyActive = groupStations.some(st => st.isActive);
+  const WALL = 3;
 
   return (
     <g>
-      {anyActive && (
-        <rect x={shellX1 - 5} y={stationsTop - 5} width={shellW + 10} height={stationH + 10}
-          fill="none" stroke={C.palette.accent} strokeWidth="2" rx="3"
-          opacity="0.35" filter="url(#stGlow)" />
-      )}
-
-      {/* Outer border */}
-      <rect x={shellX1 - 1} y={stationsTop - 1} width={shellW + 2} height={stationH + 2}
-        fill="none" stroke={anyActive ? C.palette.accent : '#4872A8'}
-        strokeWidth={anyActive ? 2 : 1.5} rx="2.5" />
-
-      {/* Shell body */}
-      <rect x={shellX1} y={stationsTop} width={shellW} height={stationH} fill="#7A8E9E" rx="1.5" />
-
-      {/* Per-chamber fill / load / nozzle */}
-      {groupStations.map(st => {
-        const chamberW = pitch - 6;
-        const cxL      = st.x - chamberW / 2;
-        const fillPx   = Math.max(0, (st.fillLevel / 100) * (stationH - 6));
-        const fillY    = stationsTop + stationH - 3 - fillPx;
-        const loadH    = Math.floor(stationH * 0.38);
-        const loadY    = stationsTop + stationH - 3 - loadH;
+      <TankShell2D x1={shellX1} x2={shellX2} top={stationsTop} h={stationH} active={anyActive} />
+      {groupStations.map((st, i) => {
+        const left  = i === 0 ? shellX1 + WALL : (xs[i - 1] + st.x) / 2 + 1.5;
+        const right = i === groupStations.length - 1 ? shellX2 - WALL : (st.x + xs[i + 1]) / 2 - 1.5;
         return (
-          <g key={st.id}>
-            {fillPx > 0 && (
-              <rect x={cxL + 1} y={fillY} width={chamberW - 2} height={fillPx} fill="url(#chemGrad)" rx="0.5" />
-            )}
-            {st.hasLoad && (
-              <g>
-                <rect x={cxL + 1} y={loadY - 1} width={chamberW - 2} height={loadH + 2} fill="#FF6D00" rx="1" opacity="0.25" />
-                <rect x={cxL + 2} y={loadY} width={chamberW - 4} height={loadH} fill="#FF5722" stroke="#FFD740" strokeWidth="1.5" rx="1" />
-                <rect x={cxL + 3} y={loadY + 1} width={chamberW - 6} height="4" fill="#FF8A65" rx="0.5" opacity="0.8" />
-              </g>
-            )}
-            <line x1={cxL + 2} y1={stationsTop + stationH / 2} x2={cxL + chamberW - 2} y2={stationsTop + stationH / 2}
-              stroke="#5A6A78" strokeWidth="0.5" strokeDasharray="1.5,2.5" />
-            <rect x={st.x - 4} y={stationsTop - 7}  width="8" height="8"
-              fill={st.isActive ? C.palette.accent : '#3A6090'} rx="1" />
-            <rect x={st.x - 2} y={stationsTop - 11} width="4" height="5"
-              fill={st.isActive ? C.palette.accent : '#2E5080'} rx="1" />
-            {/* Support leg for this chamber */}
-            <rect x={st.x - 1.5} y={stationsTop + stationH} width="3" height="6" fill="#4A5A6A" />
-          </g>
+          <TankChamber key={st.id} st={st} cx={(left + right) / 2} innerW={right - left}
+            top={stationsTop + 2} h={stationH - WALL - 2} label={labels[st.id]} idx={i} loadType={loadType} />
         );
       })}
-
-      {/* Internal partition dividers between chambers */}
+      {/* Chamber divider walls */}
       {groupStations.slice(1).map((st, i) => (
-        <rect key={st.id} x={(xs[i] + xs[i + 1]) / 2 - 1.5} y={stationsTop + 1}
-          width="3" height={stationH - 2} fill="#3A4552" />
+        <rect key={st.id} x={(xs[i] + xs[i + 1]) / 2 - 1.5} y={stationsTop + 2}
+          width="3" height={stationH - 4} fill="#B4BBC1" />
       ))}
-
-      {/* Inner lip */}
-      <rect x={shellX1 + 1} y={stationsTop + 1} width={shellW - 2} height={stationH - 2}
-        fill="none" stroke="#8A9EAE" strokeWidth="0.5" rx="1" />
     </g>
   );
 }
 
 // ── Track Section ─────────────────────────────────────────────────────────────
 
-function TrackSection({ trackCfg, wagons, stations, onHoverStation, tankPartitions = [] }) {
+function TrackSection({ trackCfg, wagons, stations, onHoverStation, tankPartitions = [], labels = {}, loadType = 'barrel' }) {
   const {
-    railY, railH, railX1, railX2, railColor,
+    railY, railH, railX1, railX2,
     panelY, panelH, stationsTop, stLabelY,
   } = trackCfg;
 
@@ -532,61 +440,69 @@ function TrackSection({ trackCfg, wagons, stations, onHoverStation, tankPartitio
   }).filter(Boolean);
   const soloStations = stations.filter(st => !groupedIds.has(st.id));
 
-  const ticks = useMemo(() => {
+  // Runway hangers from the panel header down to the beam
+  const hangers = useMemo(() => {
     const arr = [];
-    for (let x = railX1 + 20; x < railX2 - 15; x += 28) arr.push(x);
+    const n = Math.max(2, Math.round((railX2 - railX1) / 160));
+    for (let i = 0; i <= n; i++) arr.push(railX1 + 10 + i * (railX2 - railX1 - 20) / n);
     return arr;
   }, [railX1, railX2]);
+
+  const ids = trackCfg.wagonIds || [];
+  const wagonLabel = ids.length === 0 ? 'NO WAGONS'
+    : ids.length === 1 ? `WAGON ${ids[0]}` : `WAGONS ${ids[0]} – ${ids[ids.length - 1]}`;
+  const loadedCount = stations.filter(st => st.hasLoad).length;
 
   return (
     <g>
       <rect x="6" y={panelY} width={C.svg.w - 12} height={panelH}
-        fill={C.palette.panel} stroke={C.palette.panelBorder} strokeWidth="1" rx="3" />
+        fill={C.palette.panel} stroke={C.palette.panelBorder} strokeWidth="1" rx="8" filter="url(#softShadow)" />
 
       {/* Panel header */}
-      <rect x="6"  y={panelY}      width={C.svg.w - 12} height="28" fill={C.palette.panelBorder} rx="3" />
-      <rect x="6"  y={panelY + 24} width={C.svg.w - 12} height="4"  fill={C.palette.panelBorder} />
-      <rect x="16" y={panelY + 6}  width="5" height="16" rx="1" fill={railColor} />
-      <text x="30" y={panelY + 19} fill={C.palette.textBright} fontSize="17"
-        fontFamily="monospace" fontWeight="bold" letterSpacing="2">{trackCfg.label}</text>
-      <text x="140" y={panelY + 19} fill={C.palette.textBright} fontSize="15"
-        fontFamily="monospace" fontWeight="bold" letterSpacing="1">{trackCfg.wagonLabel}</text>
-      <text x={C.svg.w - 18} y={panelY + 19} fill={C.palette.textBright} fontSize="15"
-        fontFamily="monospace" fontWeight="bold" textAnchor="end">{trackCfg.stations.length} TANKS</text>
+      <path d={`M6 ${panelY + 28} V${panelY + 8} Q6 ${panelY} 14 ${panelY} H${C.svg.w - 14} Q${C.svg.w - 6} ${panelY} ${C.svg.w - 6} ${panelY + 8} V${panelY + 28} Z`}
+        fill="#1F262E" />
+      <rect x="16" y={panelY + 7} width="4" height="14" rx="2" fill={THEME.amber} />
+      <text x="28" y={panelY + 20} fill="#FFFFFF" fontSize="17" fontFamily={FONT_COND}
+        fontWeight="700" letterSpacing="1.5">{trackCfg.label}</text>
+      <text x="150" y={panelY + 20} fill="#9AA6B2" fontSize="14" fontWeight="600" letterSpacing="1">{wagonLabel}</text>
+      <text x={C.svg.w - 64} y={panelY + 20} fill="#9AA6B2" fontSize="14" fontWeight="600" textAnchor="end">
+        <tspan fill={THEME.amber} fontWeight="700">{loadedCount}</tspan> LOADED · {trackCfg.stations.length} TANKS
+      </text>
 
-      {/* Rail sleepers */}
-      {ticks.map((tx, i) => (
-        <rect key={i} x={tx - 1.5} y={railY - 2} width="3" height={railH + 4}
-          fill="#8090A8" rx="0.5" />
+      {/* Runway: hangers + I-beam + rail head + end stops */}
+      {hangers.map((hx, i) => (
+        <rect key={i} x={hx - 2} y={panelY + 28} width="4" height={railY - panelY - 28} fill="#46525E" />
       ))}
-
-      {/* Rail glow */}
-      <line x1={railX1} y1={railY + railH / 2} x2={railX2} y2={railY + railH / 2}
-        stroke={railColor} strokeWidth={railH + 10} strokeOpacity="0.1" />
-      <rect x={railX1} y={railY} width={railX2 - railX1} height={railH}
-        fill={railColor} rx="2" filter="url(#railGlow)" />
-      <rect x={railX1 - 4} y={railY - 4} width="8" height={railH + 8} fill={railColor} rx="2" />
-      <rect x={railX2 - 4} y={railY - 4} width="8" height={railH + 8} fill={railColor} rx="2" />
+      <rect x={railX1} y={railY} width={railX2 - railX1} height={railH} rx="1.5" fill="url(#beam2d)" />
+      <rect x={railX1} y={railY - 2} width={railX2 - railX1} height="3" rx="1" fill="#A9B1B8" />
+      {[railX1 - 3, railX2 - 5].map(ex => (
+        <rect key={ex} x={ex} y={railY - 5} width="8" height={railH + 9} rx="1.5" fill="url(#hazard2d)" stroke="#1F262E" strokeWidth="0.8" />
+      ))}
 
       {/* Tanks */}
       {validGroups.map(g => (
-        <StationGroup key={g.id} groupStations={g.groupStations} trackCfg={trackCfg} />
+        <StationGroup key={g.id} groupStations={g.groupStations} trackCfg={trackCfg} labels={labels} loadType={loadType} />
       ))}
-      {soloStations.map(st => (
-        <Station key={st.id} st={st} trackCfg={trackCfg} />
-      ))}
-
-      {/* Tank number labels */}
-      {stations.map(st => (
-        <text key={`n-${st.id}`} x={st.x} y={stLabelY}
-          textAnchor="middle" fill={C.palette.textBright} fontSize="11" fontFamily="monospace" fontWeight="bold">
-          {st.label}
-        </text>
+      {soloStations.map((st, i) => (
+        <Station key={st.id} st={st} trackCfg={trackCfg} label={labels[st.id]} idx={i} loadType={loadType} />
       ))}
 
-      {/* Arms before wagon bodies */}
+      {/* Tank number plates */}
+      {stations.map(st => {
+        const w = Math.max(20, String(st.label).length * 7 + 10);
+        return (
+          <g key={`n-${st.id}`}>
+            <rect x={st.x - w / 2} y={stLabelY - 10} width={w} height="15" rx="3"
+              fill={st.hasLoad ? '#1F262E' : '#E5EAEE'} stroke={st.hasLoad ? THEME.amber : '#C3CAD1'} strokeWidth="1" />
+            <text x={st.x} y={stLabelY + 1} textAnchor="middle" fontSize="11" fontWeight="700"
+              fill={st.hasLoad ? '#FFFFFF' : THEME.textMid}>{st.label}</text>
+          </g>
+        );
+      })}
+
+      {/* Hoists before wagon bodies */}
       {wagons.map(w => (
-        <WagonArm key={`arm-${w.id}`} wagon={w} trackCfg={trackCfg} />
+        <WagonArm key={`arm-${w.id}`} wagon={w} trackCfg={trackCfg} loadType={loadType} />
       ))}
 
       {/* Wagon bodies */}
@@ -594,19 +510,19 @@ function TrackSection({ trackCfg, wagons, stations, onHoverStation, tankPartitio
         <Wagon key={w.id} wagon={w} trackCfg={trackCfg} />
       ))}
 
-      {/* Arm-direction arrows (on top of everything) */}
+      {/* Hoist-direction arrows (on top of everything) */}
       {wagons.map(w => (
         <WagonDirectionArrows key={`arr-${w.id}`} wagon={w} trackCfg={trackCfg} />
       ))}
 
       {/* Hover hit-zones — invisible, sit on top of everything so hovering a tank
-          (its body, thermometer, or number label) always shows its tooltip. */}
+          (its body or number plate) always shows its tooltip. */}
       {onHoverStation && stations.map(st => (
         <rect key={`hover-${st.id}`}
           x={st.x - trackCfg.stationW / 2 - 4} y={stationsTop - 16}
           width={trackCfg.stationW + 8} height={(stLabelY - stationsTop) + 20}
           fill="transparent" pointerEvents="all" style={{ cursor: 'pointer' }}
-          onMouseEnter={() => onHoverStation({ st, trackCfg })}
+          onMouseEnter={() => onHoverStation({ st, trackCfg, label: labels[st.id] })}
           onMouseLeave={() => onHoverStation(null)}
         />
       ))}
@@ -639,10 +555,10 @@ function CrossTrolley2D({ ct, tracks, stations }) {
 
   return (
     <g>
-      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C62828" strokeWidth="4"
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C53030" strokeWidth="4"
         strokeDasharray="7,5" strokeLinecap="round" opacity="0.9" />
       <rect x={midX - 10} y={midY - 10} width="20" height="20" rx="4"
-        fill="#C62828" stroke="#FFD740" strokeWidth="1.8" />
+        fill="#C53030" stroke="#FFD740" strokeWidth="1.8" />
       <text x={midX} y={midY + 5} textAnchor="middle" fontSize="13" fontWeight="800" fill="#FFD740">⇄</text>
     </g>
   );
@@ -679,16 +595,16 @@ function TablePanel({ x, y, width, height, icon, iconNode, title, children }) {
   const iconCy = y + TABLE_HDR_H / 2;
   return (
     <g>
-      <rect x={x} y={y} width={width} height={height} rx="4"
-        fill={C.palette.panel} stroke={C.palette.panelBorder} strokeWidth="1" />
-      <rect x={x} y={y} width={width} height={TABLE_HDR_H} rx="4" fill={C.palette.panelBorder} />
-      <rect x={x} y={y + TABLE_HDR_H - 4} width={width} height="4" fill={C.palette.panelBorder} />
-      <rect x={x + 8} y={y + 7} width="4" height="16" rx="1" fill={C.palette.accent} />
+      <rect x={x} y={y} width={width} height={height} rx="8"
+        fill={C.palette.panel} stroke={C.palette.panelBorder} strokeWidth="1" filter="url(#softShadow)" />
+      <path d={`M${x} ${y + TABLE_HDR_H} V${y + 8} Q${x} ${y} ${x + 8} ${y} H${x + width - 8} Q${x + width} ${y} ${x + width} ${y + 8} V${y + TABLE_HDR_H} Z`}
+        fill="#1F262E" />
+      <rect x={x + 8} y={y + 8} width="4" height="15" rx="2" fill={THEME.amber} />
       {iconNode
         ? iconNode(iconCx, iconCy)
-        : <text x={iconCx - 7} y={y + 21} fill={C.palette.accent} fontSize="16" fontFamily="monospace">{icon}</text>}
-      <text x={x + 44} y={y + 21} fill={C.palette.textBright} fontSize="16"
-        fontFamily="monospace" fontWeight="bold" letterSpacing="0.6">{title}</text>
+        : <text x={iconCx - 7} y={y + 21} fill="#5FD3DB" fontSize="16" fontFamily="inherit">{icon}</text>}
+      <text x={x + 44} y={y + 21} fill="#FFFFFF" fontSize="17"
+        fontFamily={FONT_COND} fontWeight="700" letterSpacing="1">{title}</text>
       {children}
     </g>
   );
@@ -698,11 +614,11 @@ function TableRow({ x, y, width, label, value, rowIdx }) {
   return (
     <g>
       <rect x={x} y={y} width={width} height={TABLE_ROW_H}
-        fill={rowIdx % 2 === 0 ? '#FFFFFF' : '#F4F5FA'} />
+        fill={rowIdx % 2 === 0 ? '#FFFFFF' : '#F5F7F8'} />
       <text x={x + 12} y={y + 18} fill={C.palette.textBright} fontSize="15"
-        fontFamily="monospace" fontWeight="bold">{label}</text>
+        fontFamily="inherit" fontWeight="bold">{label}</text>
       <text x={x + width - 12} y={y + 18} textAnchor="end" fill={C.palette.accent}
-        fontSize="15.5" fontFamily="monospace" fontWeight="bold">{value}</text>
+        fontSize="15.5" fontFamily="inherit" fontWeight="bold">{value}</text>
     </g>
   );
 }
@@ -713,17 +629,21 @@ function fmtClock(totalSeconds) {
   return `${m}:${s}`;
 }
 
-function CycleTimeTable({ x, y, width }) {
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setElapsed(e => e + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
+// Live numeric tag value, or null when the tag isn't there.
+function tagNum(liveTags, name) {
+  const v = Number(liveTags[name]?.value);
+  return liveTags[name] && Number.isFinite(v) ? v : null;
+}
 
+function CycleTimeTable({ x, y, width, liveTags }) {
+  const clock = name => {
+    const v = tagNum(liveTags, name);
+    return v != null ? fmtClock(Math.round(v)) : '--:--';
+  };
   const rows = [
-    ['Actual Time', fmtClock(elapsed)],
-    ['Last Cycle',  '04:32'],
-    ['SET Time',    '05:00'],
+    ['Actual Time', clock('PLANT_CYCLE_ACTUAL')],
+    ['Last Cycle',  clock('PLANT_CYCLE_LAST')],
+    ['SET Time',    clock('PLANT_CYCLE_SET')],
   ];
   const height = TABLE_HDR_H + rows.length * TABLE_ROW_H + 6;
 
@@ -767,7 +687,7 @@ function WagonMiniTable({ x, y, width, icon, iconNode, title, wagons, getValue, 
           <rect x={x + width / 2 - 14} y={y + height - 12} width="28" height="14" rx="3"
             fill={C.palette.panelBorder} />
           <text x={x + width / 2} y={y + height - 2} textAnchor="middle"
-            fill={C.palette.textBright} fontSize="9" fontFamily="monospace">
+            fill={C.palette.textBright} fontSize="9" fontFamily="inherit">
             {expanded ? '▲' : '▼'}
           </text>
         </g>
@@ -776,8 +696,11 @@ function WagonMiniTable({ x, y, width, icon, iconNode, title, wagons, getValue, 
   );
 }
 
-// Nearest-station lookup for a wagon's current location label.
-function wagonLocationLabel(wagon, stations) {
+// Wagon's live location tag (tank number) when there is one, else the
+// nearest station to its drawn position.
+function wagonLocationLabel(wagon, stations, wagonLocations = {}) {
+  const live = wagonLocations[String(wagon.id)];
+  if (live) return `TANK ${live}`;
   const trackSts = stations.filter(s => s.trackId === wagon.trackId);
   let best = null, bestDist = Infinity;
   trackSts.forEach(st => {
@@ -833,22 +756,22 @@ function GroupedStatTable({ x, y, width, icon, iconNode, title, colLabels, rows 
   return (
     <TablePanel x={x} y={y} width={width} height={height} icon={icon} iconNode={iconNode} title={title}>
       <text x={x + labelW + valW / 2} y={y + TABLE_HDR_H + 13} textAnchor="middle"
-        fill={C.palette.textDim} fontSize="9.5" fontFamily="monospace" fontWeight="bold">{colLabels[0]}</text>
+        fill={C.palette.textDim} fontSize="9.5" fontFamily="inherit" fontWeight="bold">{colLabels[0]}</text>
       <text x={x + labelW + valW + valW / 2} y={y + TABLE_HDR_H + 13} textAnchor="middle"
-        fill={C.palette.textDim} fontSize="9.5" fontFamily="monospace" fontWeight="bold">{colLabels[1]}</text>
+        fill={C.palette.textDim} fontSize="9.5" fontFamily="inherit" fontWeight="bold">{colLabels[1]}</text>
 
       {rows.map((row, i) => {
         const ry = bodyTop + i * GROUP_ROW_H;
         return (
           <g key={row.label}>
             <rect x={x} y={ry} width={width} height={GROUP_ROW_H}
-              fill={i % 2 === 0 ? '#FFFFFF' : '#F4F5FA'} />
+              fill={i % 2 === 0 ? '#FFFFFF' : '#F5F7F8'} />
             <text x={x + 12} y={ry + 15} fill={C.palette.textBright} fontSize="12.5"
-              fontFamily="monospace" fontWeight="bold">{row.label}</text>
+              fontFamily="inherit" fontWeight="bold">{row.label}</text>
             <text x={x + labelW + valW / 2} y={ry + 15} textAnchor="middle" fill={C.palette.accent}
-              fontSize="12.5" fontFamily="monospace" fontWeight="bold">{row.values[0]}</text>
+              fontSize="12.5" fontFamily="inherit" fontWeight="bold">{row.values[0]}</text>
             <text x={x + labelW + valW + valW / 2} y={ry + 15} textAnchor="middle" fill={C.palette.accent}
-              fontSize="12.5" fontFamily="monospace" fontWeight="bold">{row.values[1]}</text>
+              fontSize="12.5" fontFamily="inherit" fontWeight="bold">{row.values[1]}</text>
           </g>
         );
       })}
@@ -873,43 +796,61 @@ function groupLabel(chunk) {
   return first === last ? `STN ${first}` : `STN ${first}-${last}`;
 }
 
-function RectifierTable({ x, y }) {
-  const rows = [1, 2, 3, 4].map(n => ({ label: `SET ${n}`, values: ['1500', '12.5'] }));
+// Up to 4 rectifier stations — those with a live current set point.
+function RectifierTable({ x, y, stations, liveTags }) {
+  const rect = [...stations].sort((a, b) => a.id - b.id)
+    .filter(st => tagNum(liveTags, `Tank_${st.id}_CurrentSV`) != null).slice(0, 4);
+  const rows = rect.length
+    ? rect.map(st => {
+        const a = tagNum(liveTags, `Tank_${st.id}_Current`);
+        const v = tagNum(liveTags, `Tank_${st.id}_Voltage`);
+        return { label: `STN ${st.label}`, values: [a != null ? String(Math.round(a)) : '—', v != null ? v.toFixed(1) : '—'] };
+      })
+    : [1, 2, 3, 4].map(n => ({ label: `SET ${n}`, values: ['—', '—'] }));
   return (
     <GroupedStatTable x={x} y={y} width={TABLE_WIDTH} title="RECTIFIER"
-      iconNode={(cx, cy) => <BoltIcon x={cx} y={cy} color={C.palette.accent} />}
+      iconNode={(cx, cy) => <BoltIcon x={cx} y={cy} color="#5FD3DB" />}
       colLabels={['DC CURR (A)', 'DC VOLT (V)']} rows={rows} />
   );
 }
 
-function TemperatureTable({ x, y, stations }) {
+// Per station group: hottest live tank temperature and its set point.
+function TemperatureTable({ x, y, stations, liveTags }) {
   const rows = groupAllStations(stations).map(chunk => {
-    const avg = chunk.reduce((s, st) => s + st.temperature, 0) / chunk.length;
-    return { label: groupLabel(chunk), values: [avg.toFixed(1), (avg + 7).toFixed(1)] };
+    let best = null;
+    chunk.forEach(st => {
+      const t = tagNum(liveTags, `Tank_${st.id}_Temp`);
+      if (t != null && (!best || t > best.t)) best = { t, sv: tagNum(liveTags, `Tank_${st.id}_TempSV`) };
+    });
+    return {
+      label: groupLabel(chunk),
+      values: [best ? best.t.toFixed(1) : '—', best?.sv != null ? best.sv.toFixed(0) : '—'],
+    };
   });
   return (
     <GroupedStatTable x={x} y={y} width={TABLE_WIDTH} title="TEMPERATURE (°C)"
-      iconNode={(cx, cy) => <ThermoIcon x={cx} y={cy} color={C.palette.accent} />}
-      colLabels={['ACID TEMP', 'STEAM TEMP']} rows={rows} />
+      iconNode={(cx, cy) => <ThermoIcon x={cx} y={cy} color="#5FD3DB" />}
+      colLabels={['MAX ACTUAL', 'SET']} rows={rows} />
   );
 }
 
-// No live pH field in the sim data yet — stable, group-derived placeholder
-// values (same shape/spirit as the Wagon Instruction placeholders above)
-// until a real pH source is wired up.
-function PhTable({ x, y, stations }) {
-  const rows = groupAllStations(stations).map((chunk, i) => ({
-    label:  groupLabel(chunk),
-    values: [(5.4 + (i % 4) * 0.15).toFixed(1), (6.0 + (i % 4) * 0.1).toFixed(1)],
-  }));
+// Per station group: lowest / highest live pH among its monitored tanks.
+function PhTable({ x, y, stations, liveTags }) {
+  const rows = groupAllStations(stations).map(chunk => {
+    const phs = chunk.map(st => tagNum(liveTags, `Tank_${st.id}_PH`)).filter(v => v != null);
+    return {
+      label:  groupLabel(chunk),
+      values: phs.length ? [Math.min(...phs).toFixed(2), Math.max(...phs).toFixed(2)] : ['—', '—'],
+    };
+  });
   return (
     <GroupedStatTable x={x} y={y} width={TABLE_WIDTH} title="pH"
-      iconNode={(cx, cy) => <FlaskIcon x={cx} y={cy} color={C.palette.accent} />}
-      colLabels={['ACID pH', 'ANODE pH']} rows={rows} />
+      iconNode={(cx, cy) => <FlaskIcon x={cx} y={cy} color="#5FD3DB" />}
+      colLabels={['MIN pH', 'MAX pH']} rows={rows} />
   );
 }
 
-function BottomTables({ y, wagons, stations }) {
+function BottomTables({ y, wagons, stations, liveTags = {}, wagonLocations = {} }) {
   // Horizontally centered on the canvas, not pinned to the left margin.
   const groupWidth = 3 * TABLE_WIDTH + 2 * TABLE_GAP;
   const x1 = (C.svg.w - groupWidth) / 2;
@@ -924,22 +865,23 @@ function BottomTables({ y, wagons, stations }) {
   // every time a wagon list expands. Row 1 is painted after row 2 below, so
   // an expanded wagon table simply draws on top of row 2 rather than the two
   // overlapping unpredictably; collapsing it again reveals row 2 untouched.
-  const collapsedRow1Height = wagonMiniTableHeight(wagons.length, false);
+  const cycleTableHeight = TABLE_HDR_H + 3 * TABLE_ROW_H + 6;
+  const collapsedRow1Height = Math.max(wagonMiniTableHeight(wagons.length, false), cycleTableHeight);
   const row2Y = y + collapsedRow1Height + TABLE_GAP;
 
   return (
     <g>
-      <RectifierTable x={x1} y={row2Y} />
-      <TemperatureTable x={x2} y={row2Y} stations={stations} />
-      <PhTable x={x3} y={row2Y} stations={stations} />
+      <RectifierTable x={x1} y={row2Y} stations={stations} liveTags={liveTags} />
+      <TemperatureTable x={x2} y={row2Y} stations={stations} liveTags={liveTags} />
+      <PhTable x={x3} y={row2Y} stations={stations} liveTags={liveTags} />
 
-      <CycleTimeTable x={x1} y={y} width={TABLE_WIDTH} />
+      <CycleTimeTable x={x1} y={y} width={TABLE_WIDTH} liveTags={liveTags} />
       <WagonMiniTable x={x2} y={y} width={TABLE_WIDTH} title="WAGON LOCATION"
-        iconNode={(cx, cy) => <MapPinIcon x={cx} y={cy} color={C.palette.accent} />}
-        wagons={wagons} getValue={w => wagonLocationLabel(w, stations)}
+        iconNode={(cx, cy) => <MapPinIcon x={cx} y={cy} color="#5FD3DB" />}
+        wagons={wagons} getValue={w => wagonLocationLabel(w, stations, wagonLocations)}
         expanded={locExpanded} onToggle={() => setLocExpanded(e => !e)} />
       <WagonMiniTable x={x3} y={y} width={TABLE_WIDTH} icon="▤" title="WAGON INSTRUCTION"
-        wagons={wagons} getValue={() => '—'}
+        wagons={wagons} getValue={w => liveTags[`W${w.id}_OPERATION`]?.value || '—'}
         expanded={instrExpanded} onToggle={() => setInstrExpanded(e => !e)} />
     </g>
   );
@@ -963,7 +905,7 @@ function StatusBar() {
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
-export default function WagonScadaScreen({ wagons: wagonsIn, stations: stationsIn, tracks, tankPartitions = [], crossTrolleys = [] } = {}) {
+export default function WagonScadaScreen({ wagons: wagonsIn, stations: stationsIn, tracks, tankPartitions = [], crossTrolleys = [], liveTags = {}, wagonLocations = {}, stationLabels = {}, wagonTypeMap = {} } = {}) {
   const sim = useWagonSimulation();
   const wagons   = wagonsIn   ?? sim.wagons;
   const stations = stationsIn ?? sim.stations;
@@ -994,12 +936,14 @@ export default function WagonScadaScreen({ wagons: wagonsIn, stations: stationsI
             stations={stations.filter(s => s.trackId === trackCfg.id)}
             onHoverStation={setHoverInfo}
             tankPartitions={tankPartitions}
+            labels={stationLabels}
+            loadType={wagonTypeMap[trackCfg.wagonIds?.[0]] || 'barrel'}
           />
         ))}
         {crossTrolleys.map(ct => (
           <CrossTrolley2D key={ct.id} ct={ct} tracks={trackList} stations={stations} />
         ))}
-        <BottomTables y={tablesY} wagons={wagons} stations={stations} />
+        <BottomTables y={tablesY} wagons={wagons} stations={stations} liveTags={liveTags} wagonLocations={wagonLocations} />
         <StatusBar />
         <StationTooltip info={hoverInfo} />
       </svg>

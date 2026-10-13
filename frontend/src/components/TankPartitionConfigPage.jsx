@@ -1,285 +1,111 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { tankIdRange } from '../config/userConfig';
+import { THEME, FONT_COND } from '../theme';
+import { Page, Card, Button, Badge, Callout, EmptyState } from '../ui/kit';
 
-// Same hues Tank3D cycles through — keeps this preview visually honest to
-// what the 3D view will actually show.
-const CHAMBER_COLORS = ['#0E6A9A', '#C2185B', '#7B1FA2', '#00897B', '#558B2F', '#AFB42B'];
+// Tank Partitions — merge a run of adjacent tanks into one shell with internal
+// divider walls (drawn that way in 2D/3D; each chamber stays its own station).
+// Pick a range directly on the tank map: click the first tank, then the last.
+// Groups: [{ id, lineId, lineLabel, fromId, toId }].
 
-const T = {
-  pageBg:   '#F0F2F6', panelBg:  '#FFFFFF', cardBg:   '#F4F5FA',
-  cardHdr:  '#E8EBF4', inputBg:  '#FFFFFF', inputText:'#1A2035',
-  border:   '#C4C8D4', teal:     '#1565C0', tealBr:   '#1565C0',
-  accent:   '#1565C0', ok:       '#2E7D32', warn:     '#E65100',
-  red:      '#C62828', textWh:   '#1A2035', textLt:   '#3A4F6A',
-  textDim:  '#8090A8',
-};
-
-const inp = (extra = {}) => ({
-  boxSizing: 'border-box', background: T.inputBg, color: T.inputText,
-  border: `1.5px solid ${T.border}`, borderRadius: 5,
-  padding: '7px 10px', fontSize: 13, fontFamily: 'inherit', outline: 'none',
-  ...extra,
-});
-
-// Schematic preview of one merged/partitioned tank: one outer shell, N-1
-// internal dividers, each chamber labeled with its own tank number — this is
-// what the group will look like once applied (a simplified stand-in for the
-// real 3D render, not to exact scale).
-function GroupPreview({ fromId, count }) {
-  const chamberW = 84, h = 92, gap = 3;
-  const w = count * chamberW;
-  return (
-    <svg width={w + 20} height={h + 46} style={{ display: 'block' }}>
-      <text x={(w + 20) / 2} y={16} textAnchor="middle" fontSize="11" fontWeight="700" fill={T.textLt}>
-        1 shell · {count} chambers
-      </text>
-      <g transform="translate(10,26)">
-        {/* outer shell */}
-        <rect x={-3} y={-3} width={w + 6} height={h + 6} rx={4}
-          fill="#0A1420" stroke="#FFB300" strokeWidth={2} />
-        {Array.from({ length: count }, (_, i) => (
-          <g key={i}>
-            <rect x={i * chamberW + gap} y={0} width={chamberW - gap * 2} height={h}
-              fill={CHAMBER_COLORS[i % CHAMBER_COLORS.length]} opacity={0.55} />
-            {i > 0 && (
-              <rect x={i * chamberW - 1.5} y={0} width={3} height={h} fill="#0A1420" />
-            )}
-            <text x={i * chamberW + chamberW / 2} y={h + 20} textAnchor="middle"
-              fontSize="12" fontWeight="800" fill={T.textWh}>
-              #{fromId + i}
-            </text>
-          </g>
-        ))}
-      </g>
-    </svg>
-  );
-}
+const GROUP_COLORS = ['#0E7C86', '#B45309', '#6B3FA8', '#2F855A', '#C53030', '#1F6FB2'];
 
 export default function TankPartitionConfigPage({ userCfg, groups, onSave, onBack }) {
   const [draft, setDraft] = useState(() => groups.map(g => ({ ...g })));
-  const [lineIdx, setLineIdx] = useState(0);
-  const [fromId, setFromId] = useState(null);
-  const [count, setCount] = useState(3);
+  const [anchor, setAnchor] = useState(null);       // { lineId, id } — first click
+  const [hoverId, setHoverId] = useState(null);
   const [error, setError] = useState('');
+  const dirty = JSON.stringify(draft) !== JSON.stringify(groups);
+  const names = userCfg.tankTags || {};
 
-  const lineRanges = useMemo(
-    () => userCfg.lines.map((_, i) => tankIdRange(userCfg, i)),
-    [userCfg]
-  );
+  const lines = useMemo(() => userCfg.lines.map((l, i) => {
+    const [lo, hi] = tankIdRange(userCfg, i);
+    return { ...l, lo, hi };
+  }), [userCfg]);
 
-  const [rangeLo, rangeHi] = lineRanges[lineIdx] || [1, 1];
-  const effectiveFrom = fromId ?? rangeLo;
-  const maxCount = Math.max(2, rangeHi - effectiveFrom + 1);
+  const groupOf = (lineId, id) => draft.find(g => g.lineId === lineId && id >= g.fromId && id <= g.toId);
+  const colorOf = g => GROUP_COLORS[draft.indexOf(g) % GROUP_COLORS.length];
 
-  // Tanks already claimed by a saved group on this line, so a new group can't
-  // straddle or duplicate them.
-  const takenOnLine = useMemo(() => {
-    const set = new Set();
-    draft.forEach(g => {
-      if (g.lineId !== userCfg.lines[lineIdx]?.id) return;
-      for (let id = g.fromId; id <= g.toId; id++) set.add(id);
-    });
-    return set;
-  }, [draft, lineIdx, userCfg]);
-
-  const addGroup = () => {
-    const from = effectiveFrom;
-    const to = from + count - 1;
-    if (from < rangeLo || to > rangeHi) {
-      setError(`Tanks #${from}–#${to} are outside this line's range (#${rangeLo}–#${rangeHi}).`);
-      return;
-    }
-    for (let id = from; id <= to; id++) {
-      if (takenOnLine.has(id)) {
-        setError(`Tank #${id} is already part of another partition group on this line.`);
-        return;
-      }
-    }
+  const clickTank = (line, id) => {
     setError('');
-    setDraft(d => [...d, {
-      id: `grp_${Date.now()}`,
-      lineId: userCfg.lines[lineIdx].id,
-      lineLabel: userCfg.lines[lineIdx].label,
-      fromId: from,
-      toId: to,
-    }]);
+    if (groupOf(line.id, id)) { setError(`Tank ${id} is already in a partition — remove that one first.`); setAnchor(null); return; }
+    if (!anchor || anchor.lineId !== line.id) { setAnchor({ lineId: line.id, id }); return; }
+    if (anchor.id === id) { setAnchor(null); return; }
+    const from = Math.min(anchor.id, id), to = Math.max(anchor.id, id);
+    for (let t = from; t <= to; t++) {
+      if (groupOf(line.id, t)) { setError(`Tank ${t} is already part of another partition on this line.`); setAnchor(null); return; }
+    }
+    setDraft(d => [...d, { id: `grp_${Date.now()}`, lineId: line.id, lineLabel: line.label, fromId: from, toId: to }]);
+    setAnchor(null);
   };
 
-  const removeGroup = id => setDraft(d => d.filter(g => g.id !== id));
+  const inPreview = (lineId, id) => {
+    if (!anchor || anchor.lineId !== lineId || hoverId == null) return false;
+    const a = Math.min(anchor.id, hoverId), b = Math.max(anchor.id, hoverId);
+    return id >= a && id <= b;
+  };
 
   return (
-    <div style={{
-      width: '100%', height: '100%', overflow: 'hidden', background: T.pageBg,
-      display: 'flex', flexDirection: 'column',
-      fontFamily: "'Segoe UI', system-ui, monospace",
-    }}>
-      {/* Header */}
-      <div style={{
-        background: T.cardHdr, borderBottom: `3px solid ${T.teal}`,
-        padding: '14px 28px', flexShrink: 0,
-        display: 'flex', alignItems: 'center', gap: 14,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-      }}>
-        <div style={{
-          background: T.teal, color: '#FFFFFF', fontWeight: 900,
-          fontSize: 18, padding: '6px 12px', borderRadius: 4,
-        }}>▥</div>
-        <div>
-          <div style={{ fontSize: 11, color: T.tealBr, letterSpacing: 3, fontWeight: 600 }}>
-            TANK PARTITION CONFIGURATION
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: T.textWh, marginTop: 2 }}>
-            Merge adjacent tanks into one partitioned shell
-          </div>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-        {/* New group builder */}
-        <div style={{
-          background: T.panelBg, border: `1px solid ${T.border}`, borderRadius: 8, padding: 18,
-          display: 'flex', gap: 24, flexWrap: 'wrap',
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 220 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.tealBr, letterSpacing: 1.5 }}>ADD PARTITION GROUP</div>
-
-            <div>
-              <div style={{ fontSize: 10.5, color: T.textDim, marginBottom: 5 }}>LINE</div>
-              <select
-                value={lineIdx}
-                onChange={e => { setLineIdx(+e.target.value); setFromId(null); setError(''); }}
-                style={{ ...inp(), width: '100%', cursor: 'pointer' }}
-              >
-                {userCfg.lines.map((l, i) => (
-                  <option key={l.id} value={i}>{l.label} (#{lineRanges[i][0]}–#{lineRanges[i][1]})</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <div style={{ fontSize: 10.5, color: T.textDim, marginBottom: 5 }}>START TANK</div>
-              <input
-                type="number" min={rangeLo} max={rangeHi} value={effectiveFrom}
-                onChange={e => { setFromId(Math.max(rangeLo, Math.min(rangeHi, +e.target.value || rangeLo))); setError(''); }}
-                style={{ ...inp(), width: '100%' }}
-              />
-            </div>
-
-            <div>
-              <div style={{ fontSize: 10.5, color: T.textDim, marginBottom: 5 }}>NUMBER OF PARTITIONS</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button onClick={() => { setCount(c => Math.max(2, c - 1)); setError(''); }} style={ctrlBtn()}>−</button>
-                <span style={{
-                  fontSize: 20, fontWeight: 800, color: T.textWh, minWidth: 32, textAlign: 'center',
-                  background: T.cardBg, padding: '3px 8px', borderRadius: 5, border: `1px solid ${T.border}`,
-                }}>{count}</span>
-                <button onClick={() => { setCount(c => Math.min(maxCount, c + 1)); setError(''); }} style={ctrlBtn()}>+</button>
-              </div>
-              <div style={{ fontSize: 10, color: T.textDim, marginTop: 4 }}>2 – {maxCount} chambers</div>
-            </div>
-
-            <button onClick={addGroup} style={{
-              padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              background: T.ok, border: 'none', color: '#fff', borderRadius: 6, fontFamily: 'inherit',
-              boxShadow: `0 0 14px ${T.ok}55`,
-            }}>+ Add Group</button>
-
-            {error && (
-              <div style={{ fontSize: 11, color: T.red, fontWeight: 600 }}>{error}</div>
-            )}
-          </div>
-
-          {/* Live preview of the group about to be added */}
-          <div style={{ flex: 1, minWidth: 280 }}>
-            <div style={{ fontSize: 11, color: T.textDim, letterSpacing: 1, marginBottom: 10 }}>PREVIEW — BEFORE SAVING</div>
-            <div style={{
-              background: '#0A1420', border: `1px solid ${T.border}`, borderRadius: 8,
-              padding: '16px', display: 'flex', justifyContent: 'center', overflowX: 'auto',
-            }}>
-              <GroupPreview fromId={effectiveFrom} count={count} />
-            </div>
-            <div style={{ fontSize: 10.5, color: T.textDim, marginTop: 8 }}>
-              Tanks #{effectiveFrom}–#{effectiveFrom + count - 1} render as one continuous shell with
-              {' '}{count - 1} internal divider{count - 1 === 1 ? '' : 's'}. Each chamber keeps its own fill level,
-              load, and tag data — only the outer shape changes.
-            </div>
-          </div>
-        </div>
-
-        {/* Existing groups */}
-        <div style={{
-          background: T.panelBg, border: `1px solid ${T.border}`, borderRadius: 8, padding: 18,
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: T.tealBr, letterSpacing: 1.5, marginBottom: 12 }}>
-            SAVED PARTITION GROUPS ({draft.length})
-          </div>
-          {draft.length === 0 ? (
-            <div style={{ fontSize: 12, color: T.textDim, fontStyle: 'italic', padding: '8px 0' }}>
-              No partition groups yet — every tank renders as its own individual shell.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {draft.map(g => (
-                <div key={g.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 14,
-                  background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 6,
-                  padding: '10px 14px',
-                }}>
-                  <div style={{
-                    background: T.accent, color: '#fff', fontWeight: 800, fontSize: 11,
-                    padding: '4px 10px', borderRadius: 4, whiteSpace: 'nowrap',
-                  }}>{g.lineLabel || g.lineId}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.textWh }}>
-                    Tanks #{g.fromId}–#{g.toId}
-                  </div>
-                  <div style={{ fontSize: 11, color: T.textDim }}>
-                    {g.toId - g.fromId + 1} chambers
-                  </div>
-                  <div style={{ flex: 1 }} />
-                  <button onClick={() => removeGroup(g.id)} style={{
-                    padding: '6px 14px', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
-                    background: T.panelBg, border: `1.5px solid ${T.border}`,
-                    color: T.red, borderRadius: 5, fontFamily: 'inherit',
-                  }}>✕ Remove</button>
+    <Page onBack={onBack} crumbs={['Configuration']} title="Tank Partitions"
+      subtitle="Merge adjacent tanks into one partitioned shell (e.g. a long plating tank with several cells). Click the first tank, then the last."
+      actions={(
+        <>
+          {dirty && <Badge toneName="amber" dot>Unsaved changes</Badge>}
+          <Button disabled={!dirty} onClick={() => { setDraft(groups.map(g => ({ ...g }))); setAnchor(null); }}>Discard</Button>
+          <Button variant="primary" icon="✓" disabled={!dirty} onClick={() => onSave(draft)}>Save partitions</Button>
+        </>
+      )}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 20, alignItems: 'start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {error && <Callout toneName="danger" icon="!">{error}</Callout>}
+          {anchor && !error && <Callout icon="➜">Start tank {anchor.id} selected — now click the last tank of the partition (or the same tank to cancel).</Callout>}
+          {lines.map(line => {
+            const ids = Array.from({ length: line.hi - line.lo + 1 }, (_, i) => line.lo + i);
+            return (
+              <Card key={line.id} title={line.label} subtitle={`Tanks ${line.lo}–${line.hi}`} icon="▥" pad={16}
+                actions={<Badge>{draft.filter(g => g.lineId === line.id).length} partitions</Badge>}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))', gap: 6 }}>
+                  {ids.map(id => {
+                    const g = groupOf(line.id, id);
+                    const col = g ? colorOf(g) : null;
+                    const isAnchor = anchor && anchor.lineId === line.id && anchor.id === id;
+                    const preview = inPreview(line.id, id);
+                    return (
+                      <button key={id} title={names[id]?.label || `Tank ${id}`}
+                        onClick={() => clickTank(line, id)}
+                        onMouseEnter={() => setHoverId(id)} onMouseLeave={() => setHoverId(null)}
+                        style={{
+                          height: 64, borderRadius: 10, cursor: 'pointer', padding: 6, textAlign: 'left',
+                          border: `2px solid ${isAnchor ? THEME.accent : col || (preview ? `${THEME.accent}88` : '#E1E6EA')}`,
+                          background: col ? `${col}18` : preview ? THEME.accentSoft : '#FFFFFF',
+                          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                        }}>
+                        <span style={{ fontFamily: FONT_COND, fontSize: 19, fontWeight: 700, color: col || THEME.text }}>{id}</span>
+                        <span style={{ fontSize: 10.5, color: THEME.textDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{names[id]?.label || ''}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          )}
+              </Card>
+            );
+          })}
         </div>
-      </div>
 
-      {/* Footer */}
-      <div style={{
-        background: T.panelBg, borderTop: `2px solid ${T.border}`,
-        padding: '14px 28px', flexShrink: 0,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.08)',
-      }}>
-        <button onClick={onBack} style={{
-          padding: '10px 24px', fontSize: 13, fontWeight: 600,
-          background: T.cardBg, border: `1.5px solid ${T.border}`,
-          color: T.textLt, cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',
-        }}>← Back</button>
-
-        <button onClick={() => onSave(draft)} style={{
-          padding: '10px 32px', fontSize: 13, fontWeight: 700,
-          background: T.teal, border: 'none', color: '#FFFFFF',
-          cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',
-          boxShadow: `0 0 18px ${T.teal}55`,
-        }}>✔ Save &amp; Apply</button>
+        <Card title="Partitions" icon="⧉" pad={draft.length ? 12 : 0} style={{ position: 'sticky', top: 0 }}>
+          {draft.length === 0
+            ? <EmptyState icon="▥" title="No partitions" text="Every tank is its own shell. Pick a range on the map to merge tanks." />
+            : draft.map(g => (
+              <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, background: '#F6F8FA', marginBottom: 8 }}>
+                <span style={{ width: 10, alignSelf: 'stretch', borderRadius: 5, background: colorOf(g) }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: THEME.text }}>Tanks {g.fromId}–{g.toId}</div>
+                  <div style={{ fontSize: 12.5, color: THEME.textDim }}>{g.lineLabel} · {g.toId - g.fromId + 1} chambers</div>
+                </div>
+                <Button size="sm" variant="danger" onClick={() => setDraft(d => d.filter(x => x.id !== g.id))}>Remove</Button>
+              </div>
+            ))}
+        </Card>
       </div>
-    </div>
+    </Page>
   );
-}
-
-function ctrlBtn() {
-  return {
-    width: 30, height: 30, fontSize: 16, fontWeight: 700,
-    background: T.cardBg, border: `1.5px solid ${T.border}`,
-    color: T.textWh, cursor: 'pointer', borderRadius: 6,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontFamily: 'inherit',
-  };
 }

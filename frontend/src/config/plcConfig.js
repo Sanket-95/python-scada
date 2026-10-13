@@ -27,6 +27,18 @@ export function hasPlcConfig(cfg) {
   return !!(cfg && (cfg.ip || '').trim())
 }
 
+// Where live tag values come from: 'mock' = the in-browser plant simulation
+// (sim/mockPlant.js), 'plc' = the backend's real PLC poller over WebSocket.
+// A config saved before this switch existed has no dataSource — treat it as
+// 'plc' if a PLC is configured (so an installed site keeps reading its PLC)
+// and 'mock' otherwise. Must match plc_publisher.py's _data_source().
+export const DATA_SOURCES = ['mock', 'plc']
+
+export function dataSourceOf(cfg) {
+  if (cfg && DATA_SOURCES.includes(cfg.dataSource)) return cfg.dataSource
+  return hasPlcConfig(cfg) ? 'plc' : 'mock'
+}
+
 export function loadPlcConfig() {
   try {
     const raw = localStorage.getItem(KEY)

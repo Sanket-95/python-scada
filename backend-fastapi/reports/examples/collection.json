@@ -1,0 +1,235 @@
+{
+  "report_id": "RPT-COLL-20250819-794920",
+  "report": "collection",
+  "title": "Daily Milk Collection Report",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "total_received_l": 85778.0,
+    "cow_received_l": 47341.0,
+    "buffalo_received_l": 38437.0,
+    "accepted_l": 75638.5,
+    "rejected_l": 10136.8,
+    "samples_l": 2.79,
+    "deliveries": 14,
+    "avg_receiving_temp_c": 6.19,
+    "intake_balance_difference_l": -0.0
+  },
+  "rows": [
+    {
+      "delivery_id": "DLV-250819-03",
+      "batch_id": "RB-250819-03",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "collection_time": "2025-08-19T05:27:34",
+      "center_id": "CC-01",
+      "center_name": "Ambegaon Collection Centre",
+      "supplier_id": "SUP-1001",
+      "supplier_name": "Kavya Farms (fictional)",
+      "tanker_id": "TKR-016",
+      "arrival_time": "2025-08-19T06:54:11",
+      "unload_start": "2025-08-19T07:03:34",
+      "unload_end": "2025-08-19T07:29:43",
+      "milk_type": "Cow",
+      "gross_l": 6536.0,
+      "sample_ml": 162.0,
+      "accepted_l": 6535.838,
+      "rejected_l": 0.0,
+      "reject_reason": null,
+      "temperature_c": 4.6,
+      "quality_status": "Within demo rules",
+      "receiving_tank": "RT-01",
+      "operator_id": "OP-24",
+      "sample_id": "SMP-250819-03",
+      "is_mock": true
+    },
+    {
+      "delivery_id": "DLV-250819-05",
+      "batch_id": "RB-250819-05",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "collection_time": "2025-08-19T05:53:04",
+      "center_id": "CC-01",
+      "center_name": "Ambegaon Collection Centre",
+      "supplier_id": "SUP-1001",
+      "supplier_name": "Kavya Farms (fictional)",
+      "tanker_id": "TKR-014",
+      "arrival_time": "2025-08-19T07:43:12",
+      "unload_start": "2025-08-19T07:52:19",
+      "unload_end": "2025-08-19T08:13:25",
+      "milk_type": "Cow",
+      "gross_l": 5275.0,
+      "sample_ml": 197.0,
+      "accepted_l": 5274.803,
+      "rejected_l": 0.0,
+      "reject_reason": null,
+      "temperature_c": 8.8,
+      "quality_status": "Review required",
+      "receiving_tank": "RT-01",
+      "operator_id": "OP-26",
+      "sample_id": "SMP-250819-05",
+      "is_mock": true
+    },
+    {
+      "delivery_id": "DLV-250819-06",
+      "batch_id": "RB-250819-06",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "collection_time": "2025-08-19T04:56:11",
+      "center_id": "CC-04",
+      "center_name": "Sonori Village Centre",
+      "supplier_id": "SUP-1007",
+      "supplier_name": "Greenpasture Farms (fictional)",
+      "tanker_id": "TKR-013",
+      "arrival_time": "2025-08-19T08:08:28",
+      "unload_start": null,
+      "unload_end": null,
+      "milk_type": "Cow",
+      "gross_l": 8017.0,
+      "sample_ml": 240.0,
+      "accepted_l": 0.0,
+      "rejected_l": 8016.76,
+      "reject_reason": "Temperature 11.4 °C > demo max 8.0",
+      "temperature_c": 11.4,
+      "quality_status": "Rejected",
+      "receiving_tank": null,
+      "operator_id": "OP-22",
+      "sample_id": "SMP-250819-06",
+      "is_mock": true
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total": 14,
+    "pages": 1
+  },
+  "columns": [
+    {
+      "key": "delivery_id",
+      "label": "Delivery"
+    },
+    {
+      "key": "batch_id",
+      "label": "Batch"
+    },
+    {
+      "key": "arrival_time",
+      "label": "Arrival",
+      "kind": "datetime"
+    },
+    {
+      "key": "center_name",
+      "label": "Collection centre"
+    },
+    {
+      "key": "supplier_id",
+      "label": "Supplier"
+    },
+    {
+      "key": "tanker_id",
+      "label": "Tanker"
+    },
+    {
+      "key": "milk_type",
+      "label": "Milk"
+    },
+    {
+      "key": "gross_l",
+      "label": "Gross",
+      "unit": "L"
+    },
+    {
+      "key": "sample_ml",
+      "label": "Sample",
+      "unit": "mL"
+    },
+    {
+      "key": "accepted_l",
+      "label": "Accepted",
+      "unit": "L"
+    },
+    {
+      "key": "rejected_l",
+      "label": "Rejected",
+      "unit": "L"
+    },
+    {
+      "key": "temperature_c",
+      "label": "Temp",
+      "unit": "°C"
+    },
+    {
+      "key": "quality_status",
+      "label": "Quality",
+      "kind": "status"
+    },
+    {
+      "key": "receiving_tank",
+      "label": "Tank"
+    },
+    {
+      "key": "unload_start",
+      "label": "Unload start",
+      "kind": "datetime",
+      "hidden": true
+    },
+    {
+      "key": "unload_end",
+      "label": "Unload end",
+      "kind": "datetime",
+      "hidden": true
+    },
+    {
+      "key": "collection_time",
+      "label": "Collected",
+      "kind": "datetime",
+      "hidden": true
+    },
+    {
+      "key": "operator_id",
+      "label": "Operator",
+      "hidden": true
+    },
+    {
+      "key": "sample_id",
+      "label": "Sample ID",
+      "hidden": true
+    },
+    {
+      "key": "reject_reason",
+      "label": "Reject reason",
+      "hidden": true
+    }
+  ],
+  "charts": {
+    "daily": [
+      {
+        "x": "2025-08-19",
+        "Cow": 47341.0,
+        "Buffalo": 38437.0
+      }
+    ]
+  },
+  "notes": [
+    "Convention: gross = accepted + rejected + documented sample volume (sample mL ÷ 1000). intake_balance_difference_l shows any residual (expected 0 within record rounding).",
+    "Fully rejected loads are not unloaded — unload times and receiving tank are blank.",
+    "Average receiving temperature is a simple mean over deliveries."
+  ]
+}

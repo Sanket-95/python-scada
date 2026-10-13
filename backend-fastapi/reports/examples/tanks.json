@@ -1,0 +1,333 @@
+{
+  "report_id": "RPT-TANK-20250819-1B4E0A",
+  "report": "tanks",
+  "title": "Tank Inventory and Transfer Report",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "tanks": 4,
+    "max_abs_balance_check_l": 0.07
+  },
+  "rows": [
+    {
+      "tank_id": "RT-01",
+      "tank_name": "Raw Milk Reception Tank",
+      "milk_type": "Mixed (one type at a time)",
+      "capacity_l": 15000,
+      "report_date": "2025-08-19",
+      "shift": "All",
+      "start": "2025-08-19T06:00:00",
+      "end": "2025-08-20T06:00:00",
+      "opening_l": 0.0,
+      "incoming_l": 75638.5,
+      "outgoing_l": 75638.5,
+      "adjustments_l": 0.0,
+      "closing_l": 0.0,
+      "balance_check_l": 0.0,
+      "level_pct": 0.0,
+      "temp_c": 4.0,
+      "pump_id": "P-101",
+      "valve_ids": [
+        "V-101",
+        "V-301"
+      ],
+      "transfers": 26,
+      "transfer_batch_ids": [
+        "RB-250819-03",
+        "RB-250819-04",
+        "RB-250819-05",
+        "RB-250819-07",
+        "RB-250819-08",
+        "RB-250819-09",
+        "RB-250819-10",
+        "RB-250819-11",
+        "RB-250819-12",
+        "RB-250819-13",
+        "RB-250819-14",
+        "RB-250819-15"
+      ],
+      "status": "Normal",
+      "alarm_events": 3,
+      "is_mock": true
+    },
+    {
+      "tank_id": "ST-COW-01",
+      "tank_name": "Cow Milk Silo",
+      "milk_type": "Cow",
+      "capacity_l": 50000,
+      "report_date": "2025-08-19",
+      "shift": "All",
+      "start": "2025-08-19T06:00:00",
+      "end": "2025-08-20T06:00:00",
+      "opening_l": 16658.8,
+      "incoming_l": 39322.7,
+      "outgoing_l": 42228.5,
+      "adjustments_l": 0.0,
+      "closing_l": 13753.0,
+      "balance_check_l": 0.0,
+      "level_pct": 27.5,
+      "temp_c": 4.0,
+      "pump_id": "P-201",
+      "valve_ids": [
+        "V-301",
+        "V-201"
+      ],
+      "transfers": 11,
+      "transfer_batch_ids": [
+        "RB-250818-09",
+        "RB-250818-10",
+        "RB-250818-11",
+        "RB-250819-03",
+        "RB-250819-05",
+        "RB-250819-08",
+        "RB-250819-09",
+        "RB-250819-10",
+        "RB-250819-12",
+        "RB-250819-13"
+      ],
+      "status": "Normal",
+      "alarm_events": 0,
+      "is_mock": true
+    },
+    {
+      "tank_id": "ST-BUF-01",
+      "tank_name": "Buffalo Milk Silo",
+      "milk_type": "Buffalo",
+      "capacity_l": 50000,
+      "report_date": "2025-08-19",
+      "shift": "All",
+      "start": "2025-08-19T06:00:00",
+      "end": "2025-08-20T06:00:00",
+      "opening_l": 19604.6,
+      "incoming_l": 36315.8,
+      "outgoing_l": 40098.9,
+      "adjustments_l": 0.0,
+      "closing_l": 15821.5,
+      "balance_check_l": -0.03,
+      "level_pct": 31.6,
+      "temp_c": 4.0,
+      "pump_id": "P-202",
+      "valve_ids": [
+        "V-301",
+        "V-202"
+      ],
+      "transfers": 10,
+      "transfer_batch_ids": [
+        "RB-250818-08",
+        "RB-250819-01",
+        "RB-250819-02",
+        "RB-250819-04",
+        "RB-250819-07",
+        "RB-250819-11",
+        "RB-250819-14",
+        "RB-250819-15",
+        "RB-250820-01"
+      ],
+      "status": "Normal",
+      "alarm_events": 0,
+      "is_mock": true
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total": 4,
+    "pages": 1
+  },
+  "columns": [
+    {
+      "key": "report_date",
+      "label": "Date"
+    },
+    {
+      "key": "shift",
+      "label": "Shift"
+    },
+    {
+      "key": "tank_id",
+      "label": "Tank"
+    },
+    {
+      "key": "milk_type",
+      "label": "Milk"
+    },
+    {
+      "key": "capacity_l",
+      "label": "Capacity",
+      "unit": "L"
+    },
+    {
+      "key": "opening_l",
+      "label": "Opening",
+      "unit": "L"
+    },
+    {
+      "key": "incoming_l",
+      "label": "In",
+      "unit": "L"
+    },
+    {
+      "key": "outgoing_l",
+      "label": "Out",
+      "unit": "L"
+    },
+    {
+      "key": "closing_l",
+      "label": "Closing",
+      "unit": "L"
+    },
+    {
+      "key": "level_pct",
+      "label": "Level",
+      "unit": "%"
+    },
+    {
+      "key": "temp_c",
+      "label": "Temp",
+      "unit": "°C"
+    },
+    {
+      "key": "status",
+      "label": "Status",
+      "kind": "status"
+    },
+    {
+      "key": "alarm_events",
+      "label": "Alarms"
+    },
+    {
+      "key": "transfers",
+      "label": "Transfers"
+    },
+    {
+      "key": "pump_id",
+      "label": "Pump",
+      "hidden": true
+    },
+    {
+      "key": "valve_ids",
+      "label": "Valves",
+      "hidden": true
+    },
+    {
+      "key": "transfer_batch_ids",
+      "label": "Batch IDs",
+      "hidden": true
+    },
+    {
+      "key": "balance_check_l",
+      "label": "Balance check",
+      "unit": "L",
+      "hidden": true
+    }
+  ],
+  "charts": {
+    "history": {
+      "RT-01": {
+        "capacity": 15000,
+        "points": [
+          {
+            "t": "2025-08-19T06:00:00",
+            "l": 0.0
+          },
+          {
+            "t": "2025-08-19T07:29:43",
+            "l": 6535.8
+          },
+          {
+            "t": "2025-08-19T07:32:43",
+            "l": 0.0
+          },
+          {
+            "t": "2025-08-19T08:13:25",
+            "l": 5274.8
+          }
+        ]
+      },
+      "ST-COW-01": {
+        "capacity": 50000,
+        "points": [
+          {
+            "t": "2025-08-19T06:00:00",
+            "l": 16658.8
+          },
+          {
+            "t": "2025-08-19T07:32:43",
+            "l": 23194.6
+          },
+          {
+            "t": "2025-08-19T07:37:00",
+            "l": 16093.2
+          },
+          {
+            "t": "2025-08-19T08:50:00",
+            "l": 21368.0
+          }
+        ]
+      },
+      "ST-BUF-01": {
+        "capacity": 50000,
+        "points": [
+          {
+            "t": "2025-08-19T06:00:00",
+            "l": 19604.6
+          },
+          {
+            "t": "2025-08-19T07:37:00",
+            "l": 14870.3
+          },
+          {
+            "t": "2025-08-19T09:25:47",
+            "l": 19109.1
+          },
+          {
+            "t": "2025-08-19T10:08:17",
+            "l": 24596.9
+          }
+        ]
+      },
+      "ST-PM-01": {
+        "capacity": 30000,
+        "points": [
+          {
+            "t": "2025-08-19T06:00:00",
+            "l": 5536.0
+          },
+          {
+            "t": "2025-08-19T07:14:27",
+            "l": 97.0
+          },
+          {
+            "t": "2025-08-19T08:48:00",
+            "l": 11876.2
+          },
+          {
+            "t": "2025-08-19T10:05:18",
+            "l": 7165.2
+          }
+        ]
+      }
+    }
+  },
+  "notes": [
+    "Closing = Opening + Incoming − Outgoing + documented adjustments (none simulated); balance_check_l should be 0.",
+    "Level % = Closing ÷ Capacity × 100. Transfers that would exceed capacity are limited and raise a CAPACITY_INTERLOCK alarm.",
+    "Opening/closing come from tank snapshots taken at every shift boundary."
+  ]
+}

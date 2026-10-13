@@ -1,0 +1,298 @@
+{
+  "report_id": "RPT-PROC-20250819-CB59EB",
+  "report": "processing",
+  "title": "Pasteurization and Processing Report",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "batches": 6,
+    "not_started": 0,
+    "running": 0,
+    "completed": 5,
+    "review_required": 1,
+    "failed_demo_criteria": 0,
+    "incoming_l": 82327.4,
+    "processed_l": 81898.8,
+    "documented_loss_l": 271.1
+  },
+  "rows": [
+    {
+      "batch_id": "PB-250819-02",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "product_code": "TM",
+      "product_name": "Toned Milk",
+      "milk_type": "Mixed",
+      "source_tanks": [
+        "ST-COW-01",
+        "ST-BUF-01"
+      ],
+      "source_lots": [
+        {
+          "lot": "RB-250818-09",
+          "litres": 4896.1,
+          "tank": "ST-COW-01"
+        },
+        {
+          "lot": "RB-250818-10",
+          "litres": 2205.3,
+          "tank": "ST-COW-01"
+        },
+        {
+          "lot": "RB-250818-08",
+          "litres": 4734.3,
+          "tank": "ST-BUF-01"
+        }
+      ],
+      "scheduled_start": "2025-08-19T07:37:00",
+      "start": "2025-08-19T07:37:00",
+      "end": "2025-08-19T08:48:00",
+      "incoming_l": 11835.7,
+      "processed_l": 11779.2,
+      "documented_loss_l": 24.8,
+      "inlet_temp_c": 4.9,
+      "outlet_temp_min_c": 70.8,
+      "outlet_temp_avg_c": 72.54,
+      "hold_time_s": 16.4,
+      "homogenizer_bar": 196.0,
+      "cooling_outlet_c": 3.8,
+      "line_id": "LINE-01",
+      "equipment_status": "Fault during batch",
+      "deviations": [
+        "Outlet dipped below 72.0 °C for 2 min — FDV diverted to balance tank"
+      ],
+      "alarm_ids": [
+        "ALM-250819-0008"
+      ],
+      "state": "REVIEW REQUIRED",
+      "disposition": "On hold — QA review",
+      "is_mock": true
+    },
+    {
+      "batch_id": "PB-250819-03",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "product_code": "CM",
+      "product_name": "Cow Milk",
+      "milk_type": "Cow",
+      "source_tanks": [
+        "ST-COW-01"
+      ],
+      "source_lots": [
+        {
+          "lot": "RB-250818-10",
+          "litres": 2170.5,
+          "tank": "ST-COW-01"
+        },
+        {
+          "lot": "RB-250818-11",
+          "litres": 7386.8,
+          "tank": "ST-COW-01"
+        },
+        {
+          "lot": "RB-250819-03",
+          "litres": 1394.6,
+          "tank": "ST-COW-01"
+        }
+      ],
+      "scheduled_start": "2025-08-19T10:38:00",
+      "start": "2025-08-19T10:38:00",
+      "end": "2025-08-19T11:43:42",
+      "incoming_l": 10952.0,
+      "processed_l": 10872.3,
+      "documented_loss_l": 45.8,
+      "inlet_temp_c": 5.2,
+      "outlet_temp_min_c": 72.26,
+      "outlet_temp_avg_c": 72.55,
+      "hold_time_s": 16.6,
+      "homogenizer_bar": 194.0,
+      "cooling_outlet_c": 4.5,
+      "line_id": "LINE-01",
+      "equipment_status": "Normal",
+      "deviations": [],
+      "alarm_ids": [],
+      "state": "COMPLETED",
+      "disposition": "Released (demo)",
+      "is_mock": true
+    },
+    {
+      "batch_id": "PB-250819-04",
+      "report_date": "2025-08-19",
+      "shift": "Afternoon",
+      "product_code": "FCM",
+      "product_name": "Full Cream Milk",
+      "milk_type": "Buffalo",
+      "source_tanks": [
+        "ST-BUF-01"
+      ],
+      "source_lots": [
+        {
+          "lot": "RB-250818-08",
+          "litres": 578.7,
+          "tank": "ST-BUF-01"
+        },
+        {
+          "lot": "RB-250819-01",
+          "litres": 6494.8,
+          "tank": "ST-BUF-01"
+        },
+        {
+          "lot": "RB-250819-02",
+          "litres": 7796.8,
+          "tank": "ST-BUF-01"
+        },
+        {
+          "lot": "RB-250819-04",
+          "litres": 1903.9,
+          "tank": "ST-BUF-01"
+        }
+      ],
+      "scheduled_start": "2025-08-19T14:32:00",
+      "start": "2025-08-19T14:32:00",
+      "end": "2025-08-19T16:12:38",
+      "incoming_l": 16774.3,
+      "processed_l": 16707.0,
+      "documented_loss_l": 38.8,
+      "inlet_temp_c": 5.2,
+      "outlet_temp_min_c": 72.3,
+      "outlet_temp_avg_c": 72.55,
+      "hold_time_s": 15.5,
+      "homogenizer_bar": 206.0,
+      "cooling_outlet_c": 4.1,
+      "line_id": "LINE-01",
+      "equipment_status": "Normal",
+      "deviations": [],
+      "alarm_ids": [],
+      "state": "COMPLETED",
+      "disposition": "Released (demo)",
+      "is_mock": true
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total": 6,
+    "pages": 1
+  },
+  "columns": [
+    {
+      "key": "batch_id",
+      "label": "Batch"
+    },
+    {
+      "key": "product_name",
+      "label": "Product"
+    },
+    {
+      "key": "milk_type",
+      "label": "Milk"
+    },
+    {
+      "key": "start",
+      "label": "Start",
+      "kind": "datetime"
+    },
+    {
+      "key": "end",
+      "label": "End",
+      "kind": "datetime"
+    },
+    {
+      "key": "incoming_l",
+      "label": "Incoming",
+      "unit": "L"
+    },
+    {
+      "key": "processed_l",
+      "label": "Processed",
+      "unit": "L"
+    },
+    {
+      "key": "inlet_temp_c",
+      "label": "Inlet",
+      "unit": "°C"
+    },
+    {
+      "key": "outlet_temp_min_c",
+      "label": "Outlet min",
+      "unit": "°C"
+    },
+    {
+      "key": "hold_time_s",
+      "label": "Hold",
+      "unit": "s"
+    },
+    {
+      "key": "homogenizer_bar",
+      "label": "Homog.",
+      "unit": "bar"
+    },
+    {
+      "key": "cooling_outlet_c",
+      "label": "Cooling out",
+      "unit": "°C"
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "kind": "status"
+    },
+    {
+      "key": "disposition",
+      "label": "Disposition"
+    },
+    {
+      "key": "source_tanks",
+      "label": "Source tanks",
+      "hidden": true
+    },
+    {
+      "key": "deviations",
+      "label": "Deviations",
+      "hidden": true
+    },
+    {
+      "key": "documented_loss_l",
+      "label": "Doc. loss",
+      "unit": "L",
+      "hidden": true
+    },
+    {
+      "key": "line_id",
+      "label": "Line",
+      "hidden": true
+    },
+    {
+      "key": "equipment_status",
+      "label": "Equipment",
+      "hidden": true
+    }
+  ],
+  "charts": {
+    "htst": {
+      "target_temp_c": 72.0,
+      "min_hold_s": 15.0,
+      "note": "Demonstration setpoint only — not an instruction for operating real equipment. Applies only where the product and validated process configuration call for it."
+    }
+  },
+  "notes": [
+    "Demonstration setpoint only — not an instruction for operating real equipment. Applies only where the product and validated process configuration call for it.",
+    "A batch is COMPLETED only if every minute of the outlet-temperature history is ≥ the target while flow was forward AND the holding time met the minimum. A dip with flow diversion → REVIEW REQUIRED; a dip without diversion or a short holding time → FAILED DEMO CRITERIA. Averages alone never pass a batch."
+  ]
+}

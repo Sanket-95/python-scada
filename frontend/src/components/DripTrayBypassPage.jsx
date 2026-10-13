@@ -1,76 +1,51 @@
 import { memo, useCallback, useRef, useState } from 'react';
-import RotarySwitch from './RotarySwitch';
-import {
-  DRIP_TRAY_STATIONS, loadDripBypass, saveDripBypass, loadDripTimes, saveDripTimes,
-} from '../config/dripTrays';
+import { DRIP_TRAY_STATIONS, loadDripBypass, saveDripBypass, loadDripTimes, saveDripTimes } from '../config/dripTrays';
+import { THEME, FONT_COND } from '../theme';
+import { Card, Grid, Stat, Input, Toggle, Segmented, SearchBox, Row, SavedNote, Badge, Button } from '../ui/kit';
 
-const T = {
-  panelBg: '#FFFFFF', cardBg: '#F4F5FA', cardHdr: '#E8EBF4', border: '#C4C8D4',
-  accent: '#1565C0', ok: '#2E7D32', danger: '#C62828',
-  textWh: '#1A2035', textDim: '#8090A8',
-};
+// Drip Trays — one compact tile per tray: bypass switch (applied and saved the
+// moment it's flipped) and top drip time in seconds (saved on blur).
+//   bypass: { "3": "on" } — only bypassed trays stored
+//   times:  { "3": "5.5" } — strings as typed
 
-const COLS = '1fr 130px 170px';
-const STATIONS = Array.from({ length: DRIP_TRAY_STATIONS }, (_, i) => i + 1);
-
-// '' = no value; otherwise a number, and a time can't be negative.
+const TRAYS = Array.from({ length: DRIP_TRAY_STATIONS }, (_, i) => i + 1);
 const badTime = v => v !== '' && !(Number.isFinite(Number(v)) && Number(v) >= 0);
-
-// The saved shape: empty and invalid cells are both dropped, so an
-// in-progress bad value in one cell never gets persisted just because a
-// sibling cell was blurred.
 const tidy = times => Object.fromEntries(Object.entries(times).filter(([, v]) => v !== '' && !badTime(v)));
 
-const Row = memo(function Row({ n, name, bypassOn, time, onToggle, onTime, onCommit }) {
+const Tray = memo(function Tray({ n, name, bypassOn, time, onToggle, onTime, onCommit }) {
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: COLS, gap: 12, alignItems: 'center',
-      padding: '4px 16px', borderBottom: `1px solid ${T.border}55`,
-      background: n % 2 ? T.panelBg : T.cardBg,
+      borderRadius: 12, border: `1px solid ${bypassOn ? '#F4D3A6' : '#E1E6EA'}`,
+      background: bypassOn ? '#FFF8EE' : '#FFFFFF', padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-        <span style={{
-          flexShrink: 0, minWidth: 26, textAlign: 'center', fontSize: 10.5, fontWeight: 800,
-          color: T.accent, background: '#E3F2FD', borderRadius: 4, padding: '2px 6px',
-        }}>{n}</span>
-        <span style={{
-          fontSize: 13, fontWeight: 700, color: T.textWh,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }} title={name}>{name}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontFamily: FONT_COND, fontSize: 22, fontWeight: 700, color: THEME.accentDark, minWidth: 34 }}>{String(n).padStart(2, '0')}</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: THEME.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={name}>{name}</span>
+        {bypassOn && <Badge toneName="warn">Bypassed</Badge>}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <RotarySwitch
-          label={`Drip Tray Station ${n} Bypass`} leftLabel="OFF" rightLabel="ON"
-          isRight={bypassOn} onToggle={() => onToggle(n)}
-        />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
+        <Toggle size="sm" checked={bypassOn} onChange={() => onToggle(n)} label="Bypass" />
+        <div style={{ position: 'relative', width: 100 }}>
+          <Input type="number" step="any" min="0" placeholder="Drip" aria-label={`Drip tray ${n} top drip time`}
+            value={time} invalid={badTime(time)}
+            style={{ textAlign: 'right', paddingRight: 24, height: 32, opacity: bypassOn ? 0.6 : 1 }}
+            onChange={e => onTime(n, e.target.value)} onBlur={() => onCommit(n)}
+            onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
+          <span style={{ position: 'absolute', right: 10, top: 8, fontSize: 12, color: THEME.textDim, pointerEvents: 'none' }}>s</span>
+        </div>
       </div>
-      <input
-        type="number" step="any" min="0" placeholder="—"
-        aria-label={`Drip Tray Station ${n} Top Drip Time`}
-        value={time}
-        onChange={e => onTime(n, e.target.value)}
-        onBlur={() => onCommit(n)}
-        onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
-        style={{
-          width: '100%', boxSizing: 'border-box', padding: '7px 10px', fontSize: 13, fontWeight: 600,
-          fontFamily: 'inherit', textAlign: 'right', outline: 'none', borderRadius: 6,
-          background: '#FFFFFF', color: T.textWh,
-          border: `1.5px solid ${badTime(time) ? T.danger : T.border}`,
-        }}
-      />
     </div>
   );
 });
 
-// stationNames comes from the app shell through SettingsPage's pageContext, so
-// each drip tray shows the same name the Stations page uses.
 export default function DripTrayBypassPage({ stationNames = [] }) {
   const [bypass, setBypass] = useState(loadDripBypass);
   const [times, setTimes] = useState(loadDripTimes);
   const [flash, setFlash] = useState(false);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
   const flashTimer = useRef(null);
 
-  // A switch: takes effect and is stored immediately.
   const toggle = useCallback(n => setBypass(prev => {
     const next = { ...prev };
     if (next[n] === 'on') delete next[n]; else next[n] = 'on';
@@ -78,60 +53,58 @@ export default function DripTrayBypassPage({ stationNames = [] }) {
     return next;
   }), []);
 
-  const setTime = useCallback((n, value) => {
-    setFlash(false);
-    setTimes(prev => ({ ...prev, [n]: value }));
-  }, []);
+  const setTime = useCallback((n, value) => { setFlash(false); setTimes(prev => ({ ...prev, [n]: value })); }, []);
 
-  const anyBad = STATIONS.some(n => badTime(times[n] ?? ''));
-
-  // Saves on blur, never on every keystroke. A bad cell is left exactly as
-  // typed, red border and all, and simply isn't persisted until it's fixed.
-  // `tidy` (empty/invalid cells dropped) is recomputed fresh from `times`
-  // every time, so this always reflects whatever's currently on screen.
   const commitTime = useCallback(n => {
     if (badTime(times[n] ?? '')) return;
     saveDripTimes(tidy(times));
     setFlash(true);
     clearTimeout(flashTimer.current);
-    flashTimer.current = setTimeout(() => setFlash(false), 1200);
+    flashTimer.current = setTimeout(() => setFlash(false), 1400);
   }, [times]);
 
-  return (
-    <div style={{ maxWidth: 720, margin: '0 auto' }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-        flexWrap: 'wrap', marginBottom: 12,
-      }}>
-        <div style={{ fontSize: 12, color: T.textDim }}>
-          Bypass and Top Drip Time both apply as soon as you set them
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {anyBad && <span style={{ fontSize: 12, fontWeight: 700, color: T.danger }}>Times must be 0 or more</span>}
-          {!anyBad && flash && <span style={{ fontSize: 12, fontWeight: 700, color: T.ok }}>✔ Saved</span>}
-        </div>
-      </div>
+  const clearAllBypass = () => { setBypass({}); saveDripBypass({}); };
 
-      <div style={{ background: T.panelBg, border: `1px solid ${T.border}`, borderRadius: 10, overflow: 'hidden' }}>
-        <div style={{
-          display: 'grid', gridTemplateColumns: COLS, gap: 12, padding: '11px 16px',
-          background: T.cardHdr, borderBottom: `2px solid ${T.accent}`,
-          fontSize: 10.5, fontWeight: 800, letterSpacing: 1, color: T.accent,
-        }}>
-          <div>DRIP TRAY</div>
-          <div style={{ textAlign: 'center' }}>BYPASS</div>
-          <div style={{ textAlign: 'right' }}>TOP DRIP TIME</div>
-        </div>
-        <div style={{ maxHeight: 'calc(100vh - 330px)', minHeight: 220, overflowY: 'auto' }}>
-          {STATIONS.map(n => (
-            <Row
-              key={n} n={n} name={stationNames[n - 1] || `Station ${n}`}
+  const bypassed = TRAYS.filter(n => bypass[n] === 'on').length;
+  const timed = TRAYS.filter(n => (times[n] ?? '') !== '' && !badTime(times[n])).length;
+  const avg = timed ? TRAYS.reduce((a, n) => a + (badTime(times[n] ?? '') || (times[n] ?? '') === '' ? 0 : Number(times[n])), 0) / timed : null;
+
+  const shown = TRAYS.filter(n => {
+    const name = stationNames[n - 1] || `Station ${n}`;
+    if (query && !`${n} ${name}`.toLowerCase().includes(query.toLowerCase())) return false;
+    if (filter === 'bypassed') return bypass[n] === 'on';
+    if (filter === 'unset') return (times[n] ?? '') === '';
+    return true;
+  });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <Grid min={210}>
+        <Stat label="Trays" value={TRAYS.length} icon="▤" />
+        <Stat label="Bypassed" value={bypassed} toneName={bypassed ? 'warn' : 'ok'} icon="⤳" />
+        <Stat label="Drip time set" value={`${timed}/${TRAYS.length}`} icon="💧" toneName="info" />
+        <Stat label="Average drip" value={avg != null ? `${avg.toFixed(1)} s` : '—'} icon="⏱" />
+      </Grid>
+      <Card title="Drip trays" subtitle="Bypass applies immediately · drip time saves when you leave the box" icon="💧"
+        actions={(
+          <Row>
+            <SavedNote show={flash} />
+            <Segmented size="sm" value={filter} onChange={setFilter} options={[
+              { value: 'all', label: 'All' }, { value: 'bypassed', label: 'Bypassed' }, { value: 'unset', label: 'No time' },
+            ]} />
+            <SearchBox value={query} onChange={setQuery} placeholder="Find tray…" width={180} />
+            {bypassed > 0 && <Button size="sm" variant="danger" onClick={clearAllBypass}>Clear all bypass</Button>}
+          </Row>
+        )}>
+        <Grid min={250} gap={12}>
+          {shown.map(n => (
+            <Tray key={n} n={n} name={stationNames[n - 1] || `Station ${n}`}
               bypassOn={bypass[n] === 'on'} time={times[n] ?? ''}
-              onToggle={toggle} onTime={setTime} onCommit={commitTime}
-            />
+              onToggle={toggle} onTime={setTime} onCommit={commitTime} />
           ))}
-        </div>
-      </div>
+        </Grid>
+        {shown.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: THEME.textDim }}>No trays match this filter</div>}
+      </Card>
     </div>
   );
 }

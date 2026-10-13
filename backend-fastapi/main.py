@@ -22,6 +22,7 @@ frontend already expects, so the frontend needs no changes:
                                       Test page "Quick Test EXE")
   GET  /api/build-plc-test-exe/{id}/status    poll a build started above
   GET  /api/build-plc-test-exe/{id}/download  fetch the finished exe
+  GET  /api/reports/...              dairy reporting module (mock data) — see reports/README.md
 
 If frontend/dist exists it is also served at "/", so a production build runs
 from this one process — this is also what a generated exe does: PyInstaller
@@ -65,6 +66,7 @@ from plc_clients.mitsubishi_client import MitsubishiClient
 from plc_clients.omron_client import OmronClient
 from plc_clients.siemens_client import SiemensClient
 from tag_store import TagStore
+from reports.api import router as reports_router
 
 store = TagStore()
 
@@ -85,6 +87,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="SCADA API", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.include_router(reports_router)   # Dairy reports (mock data) — /api/reports/*
 
 
 # ── Tags ──────────────────────────────────────────────────────────────────────

@@ -12,6 +12,13 @@
 //   section.tables[].columns   the column headings (the row-label column has none)
 //   section.tables[].rows      one indicator per row per column
 
+// A check is satisfied when its signal is ON — or OFF for an `invert` row
+// (e.g. a wagon must NOT be in service mode to start). 'unknown' stays unknown.
+export function checkState(row, signal) {
+  if (!row.invert || signal === 'unknown') return signal;
+  return signal === 'on' ? 'off' : 'on';
+}
+
 export const PREREQUISITE_SECTIONS = [
   {
     id: 'wagon',
@@ -22,7 +29,7 @@ export const PREREQUISITE_SECTIONS = [
       columns: [1, 2, 3, 4].map(n => ({ id: String(n), label: `Wagon ${n}` })),
       rows: [
         { id: 'Auto',         label: 'Auto' },
-        { id: 'Service',      label: 'Service' },
+        { id: 'Service',      label: 'Service mode', invert: true },  // healthy = OFF
         { id: 'EmgStop',      label: 'Emg Stop' },
         { id: 'TrayOutProxi', label: 'Tray Out Proxi' },
       ],

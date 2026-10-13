@@ -1,0 +1,156 @@
+{
+  "report_id": "RPT-RECO-20250819-DC8AE7",
+  "report": "reconciliation",
+  "title": "Milk Loss and Yield Reconciliation Report",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "terms": [
+      {
+        "term": "Opening inventory (all tanks + in-process)",
+        "sign": "+",
+        "volume_l": 41799.4,
+        "mass_kg": 43137.0
+      },
+      {
+        "term": "Milk received (gross)",
+        "sign": "+",
+        "volume_l": 85778.0,
+        "mass_kg": 88522.9
+      },
+      {
+        "term": "Milk rejected at intake",
+        "sign": "−",
+        "volume_l": 10136.8,
+        "mass_kg": 10461.1
+      },
+      {
+        "term": "Documented intake samples",
+        "sign": "−",
+        "volume_l": 2.8,
+        "mass_kg": 2.9
+      },
+      {
+        "term": "Finished-product volume (accepted packs)",
+        "sign": "−",
+        "volume_l": 80147.0,
+        "mass_kg": 82711.7
+      },
+      {
+        "term": "Rejected packs volume",
+        "sign": "−",
+        "volume_l": 532.0,
+        "mass_kg": 549.0
+      },
+      {
+        "term": "Documented process losses",
+        "sign": "−",
+        "volume_l": 271.1,
+        "mass_kg": 279.8
+      },
+      {
+        "term": "Closing inventory (all tanks + in-process)",
+        "sign": "−",
+        "volume_l": 36330.2,
+        "mass_kg": 37492.8
+      }
+    ],
+    "unexplained_l": 157.5,
+    "unexplained_kg": 162.5,
+    "unexplained_pct_of_received": 0.184,
+    "transferred_to_processing_l": 82327.4,
+    "density_assumption_kg_l": 1.032,
+    "opening_ts": "2025-08-19T06:00:00",
+    "closing_ts": "2025-08-20T06:00:00"
+  },
+  "rows": [
+    {
+      "term": "Opening inventory (all tanks + in-process)",
+      "sign": "+",
+      "volume_l": 41799.4,
+      "mass_kg": 43137.0
+    },
+    {
+      "term": "Milk received (gross)",
+      "sign": "+",
+      "volume_l": 85778.0,
+      "mass_kg": 88522.9
+    },
+    {
+      "term": "Milk rejected at intake",
+      "sign": "−",
+      "volume_l": 10136.8,
+      "mass_kg": 10461.1
+    }
+  ],
+  "pagination": null,
+  "columns": [
+    {
+      "key": "term",
+      "label": "Term"
+    },
+    {
+      "key": "sign",
+      "label": "±"
+    },
+    {
+      "key": "volume_l",
+      "label": "Volume",
+      "unit": "L"
+    },
+    {
+      "key": "mass_kg",
+      "label": "Mass (assumed ρ)",
+      "unit": "kg"
+    }
+  ],
+  "charts": {
+    "daily": [
+      {
+        "report_date": "2025-08-19",
+        "Opening inventory (all tanks + in-process)": 41799.4,
+        "Milk received (gross)": 85778.0,
+        "Milk rejected at intake": 10136.8,
+        "Documented intake samples": 2.8,
+        "Finished-product volume (accepted packs)": 80147.0,
+        "Rejected packs volume": 532.0,
+        "Documented process losses": 271.1,
+        "Closing inventory (all tanks + in-process)": 36330.2,
+        "unexplained_l": 157.5
+      }
+    ],
+    "equation": [
+      "Opening inventory (all tanks)",
+      "+ Milk received (gross)",
+      "− Milk rejected at intake",
+      "− Documented intake samples",
+      "− Finished-product volume (accepted packs × declared size)",
+      "− Rejected packs volume",
+      "− Documented process losses",
+      "− Closing inventory (all tanks)",
+      "= Unexplained difference (not adjusted)"
+    ]
+  },
+  "notes": [
+    "Unexplained = Opening + Received − Rejected − Samples − Finished − Rejected packs − Documented losses − Closing. It is shown as calculated and never adjusted to zero.",
+    "Mass balance uses a stated density assumption of 1.032 kg/L for every term; volume and mass are kept separate because volume varies with temperature and measurement conditions.",
+    "Plant-wide balance — milk-type, shift, centre and batch filters do not apply to this report.",
+    "Includes record rounding (0.1 L) and small unrecorded line losses that exist in the simulation on purpose."
+  ]
+}

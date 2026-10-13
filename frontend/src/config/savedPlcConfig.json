@@ -2,6 +2,12 @@
   "brand": "mitsubishi",
   "ip": "192.168.3.13",
   "port": 5003,
+  "rack": 0,
+  "slot": 0,
+  "destNode": "0.0.0",
+  "srcNode": "0.127.0",
+  "timeout": 2,
   "plcType": "Q",
-  "commType": "binary"
+  "commType": "binary",
+  "dataSource": "mock"
 }

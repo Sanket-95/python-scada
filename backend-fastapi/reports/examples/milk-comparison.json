@@ -1,0 +1,126 @@
+{
+  "report_id": "RPT-MILK-20250819-BAD1CC",
+  "report": "milk-comparison",
+  "title": "Cow vs Buffalo Milk Report",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "cow": {
+      "total_received_l": 47341.0,
+      "accepted_l": 39322.7,
+      "rejected_l": 8016.8,
+      "deliveries": 8,
+      "avg_delivery_l": 5917.6,
+      "samples_tested": 8,
+      "review_count": 4,
+      "fat_simple": 3.81,
+      "fat_weighted": 3.77,
+      "snf_simple": 8.54,
+      "snf_weighted": 8.51,
+      "density_simple": 1.031,
+      "density_weighted": 1.0309,
+      "acidity_simple": 0.134,
+      "acidity_weighted": 0.133,
+      "temp_simple": 6.92,
+      "temp_weighted": 7.17
+    },
+    "buffalo": {
+      "total_received_l": 38437.0,
+      "accepted_l": 36315.8,
+      "rejected_l": 2120.0,
+      "deliveries": 6,
+      "avg_delivery_l": 6406.2,
+      "samples_tested": 6,
+      "review_count": 4,
+      "fat_simple": 7.73,
+      "fat_weighted": 7.71,
+      "snf_simple": 9.21,
+      "snf_weighted": 9.27,
+      "density_simple": 1.0306,
+      "density_weighted": 1.0309,
+      "acidity_simple": 0.132,
+      "acidity_weighted": 0.131,
+      "temp_simple": 5.2,
+      "temp_weighted": 5.27
+    }
+  },
+  "rows": [
+    {
+      "metric": "Total received",
+      "unit": "L",
+      "method": "sum",
+      "cow": 47341.0,
+      "buffalo": 38437.0,
+      "key": "total_received_l"
+    },
+    {
+      "metric": "Accepted",
+      "unit": "L",
+      "method": "sum",
+      "cow": 39322.7,
+      "buffalo": 36315.8,
+      "key": "accepted_l"
+    },
+    {
+      "metric": "Rejected",
+      "unit": "L",
+      "method": "sum",
+      "cow": 8016.8,
+      "buffalo": 2120.0,
+      "key": "rejected_l"
+    }
+  ],
+  "pagination": null,
+  "columns": [
+    {
+      "key": "metric",
+      "label": "Metric"
+    },
+    {
+      "key": "method",
+      "label": "Average type"
+    },
+    {
+      "key": "unit",
+      "label": "Unit"
+    },
+    {
+      "key": "cow",
+      "label": "Cow"
+    },
+    {
+      "key": "buffalo",
+      "label": "Buffalo"
+    }
+  ],
+  "charts": {
+    "daily": [
+      {
+        "x": "2025-08-19",
+        "Cow": 47341.0,
+        "Buffalo": 38437.0
+      }
+    ]
+  },
+  "notes": [
+    "Volume-weighted averages weight each sample by the accepted litres it represents (rejected loads weigh 0).",
+    "Simple averages give every sample equal weight.",
+    "Cow and buffalo values vary within configurable demonstration ranges — no fixed composition is assumed."
+  ]
+}

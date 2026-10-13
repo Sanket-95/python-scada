@@ -179,10 +179,21 @@ def _load_number_tags(saved_cfg: dict) -> list[tuple[str, str, str]]:
 DEBUG_LOG = True
 
 
+def _data_source(plc_cfg) -> str:
+    """'mock' (the frontend's built-in plant simulation supplies every live
+    tag — nothing to poll) or 'plc'. A config saved before the switch existed
+    has no dataSource: 'plc' if a PLC IP is configured, else 'mock'. Must
+    match frontend/src/config/plcConfig.js's dataSourceOf()."""
+    ds = (plc_cfg or {}).get("dataSource")
+    if ds in ("mock", "plc"):
+        return ds
+    return "plc" if ((plc_cfg or {}).get("ip") or "").strip() else "mock"
+
+
 def _poll_once(store: TagStore) -> None:
     plc_cfg = config_store.load_json("savedPlcConfig.json")
-    if not plc_cfg or not (plc_cfg.get("ip") or "").strip():
-        _drop_held_client()  # config cleared — don't keep a stale connection around
+    if not plc_cfg or not (plc_cfg.get("ip") or "").strip() or _data_source(plc_cfg) == "mock":
+        _drop_held_client()  # config cleared / simulation mode — don't keep a stale connection around
         return
     user_cfg = config_store.load_json("savedUserConfig.json") or {}
     tags = (_addressed_tags(user_cfg, "tankTags", "bool")

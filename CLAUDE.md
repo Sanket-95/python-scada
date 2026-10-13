@@ -43,6 +43,94 @@ savedUserConfig.json / savedPlcConfig.json <--- config_store.py ------+
   `WagonScada3D.jsx`, backed by `savedUserConfig.json`). Plain `localStorage` does
   **not** survive into an exe — this bit us once already (see Gotchas below).
 
+## Data source: Simulation (mock) vs Live PLC
+
+Every live value has exactly one source, chosen on the PLC Connection Test
+page's **DATA SOURCE** switch and saved as `dataSource: "mock" | "plc"` in
+`savedPlcConfig.json` (so it carries into a generated exe). A config with no
+`dataSource` field means `plc` if an IP is set, else `mock`; this rule lives
+in both `plcConfig.js`'s `dataSourceOf()` and `plc_publisher.py`'s
+`_data_source()`, and the two must agree.
+
+- **mock**: `frontend/src/sim/mockPlant.js` (run by `hooks/useMockTags.js`) is
+  an in-browser plating-line simulation. It publishes the **same tag names**
+  the PLC poller would (tank tags, wagon location/lift/mode tags,
+  `STATION_<id>_P<idx>`, `STATION_<id>_LOADNUM`) plus generic tags the
+  monitoring screens read: `Tank_<id>_Temp/TempSV/Current/CurrentSV/Voltage/PH/
+  Duration/Client/Part/HeaterOn/RectifierOn`, `W<id>_OPERATION`, the
+  Dunking/SprayPump/Prerequisite LED tags, and `PLANT_ALARM_COUNT/MSG`,
+  `PLANT_MODE`, `PLANT_CYCLE_*`. Station process kind (plating, rinse, acid,
+  heated…) is inferred from the Mimic Page Config label. No backend needed,
+  so `npm run dev` alone runs the whole app.
+- **plc**: `useTagSocket` (WebSocket to the backend). `plc_publisher.py`
+  idles while the source is `mock`.
+
+Screens with no real tag for a value show `—` instead of inventing one.
+
+## Look & feel (theme, brand, fonts)
+
+- `frontend/src/theme.js` holds the brand (`BRAND` — sidebar wordmark/product,
+  currently "SSIT / LINE SCADA"), fonts (Barlow / Barlow Condensed / JetBrains
+  Mono, bundled via `@fontsource/*` in `main.jsx` so they work offline in an
+  exe) and colour tokens (graphite frame, teal accent, amber highlights).
+  Per-page `T` palettes were remapped onto these colours.
+- 3D (`WagonScada3D.jsx`): polypropylene tanks with rim/bands/skids, bath colour
+  per process from the station name (`config/processLook.js`, shared with 2D),
+  twin I-beam runway supported by X-braced end frames at each end of a line
+  (no mid-span columns — they hid the tanks), see-through acrylic tanks so the
+  load in the bath is visible, bridge-hoist wagons, concrete floor,
+  epoxy walkways, clad back wall. Label textures are cached — never create a
+  `CanvasTexture` per render (it leaked GPU memory and froze the tab once).
+- Hoist dip: a lift-tag change plays a down/hand-over/up animation
+  (`useWagonSimulation` `DIP_DOWN_S`/`DIP_UP_S`); the mock swaps the tank load at
+  `HOIST_BOTTOM_AT` so both stay in sync.
+- The 3D camera auto-frames the whole plant on load (`FitCamera`).
+
+## Non-scene screens (everything except 2D/3D)
+
+All built on the shared kit `frontend/src/ui/kit.jsx` (Page header with
+breadcrumb + top-right actions, Card, Stat, Button, Input/Select/Field,
+Toggle, Segmented, Tabs, Badge/SignalPill, DataTable, Modal…). Config pages
+edit a draft and save from the header ("Unsaved changes" badge + Discard/Save).
+Page names (sidebar label → file):
+Tank Overview → StationInfoPage · Plant Controls → SettingsPage (master/detail
+with live overview tiles; sub-pages registered in config/settingsPages.js) ·
+Plant Layout → ConfigPanel · Tank Partitions → TankPartitionConfigPage ·
+Transfer Links → CrossTrolleyConfigPage · Wagon Signals → WagonTagsPage ·
+Tank Register → TankTagsPage · Station Parameters → StationNamesConfigPage ·
+Table Columns → StationColumnConfigPage · Branding → GeneralConfigPage ·
+Connectivity → PlcConnectionTestPage · Package Builder → AppBuilderPage.
+Tag Monitor was removed. Recipes page reads its library from
+config/recipes.js (demo data). Station Parameters saves params + group labels
++ load-number registers in ONE config write (`handleSaveStationInfo`) — saving
+them through separate handlers lost all but the last change.
+
+## Dairy 3D (separate demo plant)
+
+`Dairy3DPage.jsx` (sidebar "Dairy 3D", nav id `dairy-3d`) is a self-contained
+milk-plant scene: procedural models, animated pipes coloured by flow type,
+clickable assets with a detail panel, KPI bar and bottom dashboard. Data comes
+from the in-browser simulation `sim/dairyPlant.js` (tankers → reception →
+diverter → cow/buffalo silos → pasteurizer → homogenizer → cooling → packing →
+cold storage, plus CIP and utilities). It is independent of the plating-line
+config/tags. Reference images live in `3dmodel/`.
+
+## Dairy Reports (mock-data reporting)
+
+Sidebar "Dairy Reports" (`ReportsPage.jsx`, `frontend/src/reports/*`). The UI
+runs the mock-data engine **in the browser** (`frontend/src/reports/engine/` —
+generator, calculations, CSV/PDF export): no backend, no database, no fetch.
+(It used to call the backend, and showed 504s from the Vite proxy when the
+backend wasn't running — don't reintroduce a network dependency.)
+`backend-fastapi/reports/` is the same engine in Python, exposed as
+`/api/reports/*` for external API use; keep the two in step when changing
+rules. One seeded event-timeline generator is the single source of truth for
+all 12 reports — never generate a report's data independently.
+Engine tests: `cd frontend && npm run test:reports`.
+Every record is `is_mock: true` and every screen/export shows the DEMO notice.
+Full conventions in `backend-fastapi/reports/README.md`; tests in
+`backend-fastapi/test_reports.py` (run with `venv/bin/python -m pytest`).
+
 ## Backend modules (`backend-fastapi/`)
 
 - `main.py` — FastAPI app, WebSocket tag stream, all REST endpoints (config

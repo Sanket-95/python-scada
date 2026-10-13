@@ -5,6 +5,8 @@
   python send_tags.py                                            interactive
 """
 
+from __future__ import annotations  # allow `X | None` hints on Python 3.9
+
 import json
 import os
 import sys

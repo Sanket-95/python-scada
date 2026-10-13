@@ -62,6 +62,7 @@ export default defineConfig({
       '/api/plc-test-connection': 'http://127.0.0.1:50054',
       '/api/build-plc-test-exe': 'http://127.0.0.1:50054',
       '/api/health': 'http://127.0.0.1:50054',
+      '/api/reports': 'http://127.0.0.1:50054',
     },
   },
 })

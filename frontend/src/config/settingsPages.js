@@ -28,27 +28,28 @@ import DripTrayBypassPage from '../components/DripTrayBypassPage'
 import DunkingPage from '../components/DunkingPage'
 import ProgramSelectionPage from '../components/ProgramSelectionPage'
 import PrerequisitesPage from '../components/PrerequisitesPage'
+import IoStatusPage from '../components/IoStatusPage'
 import { isPageEnabled } from './pageSelection'
 
 export const SETTINGS_SECTIONS = [
   {
     id: 'plant-io',
-    title: 'PLANT IO STATUS',
+    title: 'Signals & Interlocks',
     pages: [
-      { id: 'io-status',    label: 'Input Output Status', enabled: true },
-      { id: 'prerequisite', label: 'Prerequisite',        enabled: true, title: 'Pre-Requisites', component: PrerequisitesPage },
+      { id: 'io-status',    label: 'I/O Signals', icon: '⇵', desc: 'Live wagon and tank inputs/outputs', enabled: true, title: 'I/O Signals', component: IoStatusPage },
+      { id: 'prerequisite', label: 'Start Readiness', icon: '✓', desc: 'Interlocks that must be healthy before auto start', enabled: true, title: 'Start Readiness', component: PrerequisitesPage },
     ],
   },
   {
     id: 'set-points',
-    title: 'SET POINTS',
+    title: 'Process Parameters',
     pages: [
-      { id: 'temperature',       label: 'Temperature',                             enabled: true, component: TemperatureSettingsPage },
-      { id: 'alarm-time',        label: 'Alarm Time',                              enabled: true, title: 'Alarm Time Setting', component: AlarmTimeSettingsPage },
-      { id: 'spray-pump',        label: 'Spray Pump',                              enabled: true, component: SprayPumpPage },
-      { id: 'drip-tray-bypass',  label: 'Drip Tray Bypass and Settable Drip Time', enabled: true, component: DripTrayBypassPage },
-      { id: 'dunking',           label: 'Dunking',                                 enabled: true, component: DunkingPage },
-      { id: 'program-selection', label: 'Program Selection',                       enabled: true, component: ProgramSelectionPage },
+      { id: 'temperature',       label: 'Bath Temperature', icon: '🌡', desc: 'Low/high band per tank vs. live reading', enabled: true, component: TemperatureSettingsPage },
+      { id: 'alarm-time',        label: 'Motion Timeouts', icon: '⏱', desc: 'Per-wagon watchdog times for each motion', enabled: true, title: 'Motion Timeouts', component: AlarmTimeSettingsPage },
+      { id: 'spray-pump',        label: 'Spray Pumps', icon: '☂', desc: 'Pump mode, manual run and health', enabled: true, title: 'Spray Pumps', component: SprayPumpPage },
+      { id: 'drip-tray-bypass',  label: 'Drip Trays', icon: '💧', desc: 'Bypass and drip time per tray', enabled: true, title: 'Drip Trays', component: DripTrayBypassPage },
+      { id: 'dunking',           label: 'Agitation (Dunking)', icon: '↕', desc: 'Dunking unit mode and status per tank', enabled: true, title: 'Agitation (Dunking)', component: DunkingPage },
+      { id: 'program-selection', label: 'Recipes', icon: '☰', desc: 'Choose the plating recipe to run next', enabled: true, title: 'Recipes', component: ProgramSelectionPage },
     ],
   },
 ]

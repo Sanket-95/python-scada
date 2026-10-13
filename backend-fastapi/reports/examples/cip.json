@@ -1,0 +1,380 @@
+{
+  "report_id": "RPT-CIP-20250819-08B507",
+  "report": "cip",
+  "title": "CIP Cleaning Report",
+  "generated_at": "2026-10-13T15:27:30",
+  "demo_notice": "DEMO DATA — NOT FOR ACTUAL PRODUCTION OR QUALITY CERTIFICATION",
+  "mode": "seeded",
+  "period": {
+    "start": "2025-08-19",
+    "end": "2025-08-19",
+    "shift": "All shifts",
+    "window": [
+      "2025-07-21",
+      "2025-08-19"
+    ],
+    "simulation_clock": null
+  },
+  "filters": {
+    "mode": "seeded",
+    "start": "2025-08-19",
+    "end": "2025-08-19"
+  },
+  "summary": {
+    "cycles": 8,
+    "completed": 7,
+    "incomplete": 0,
+    "failed_demo_criteria": 1,
+    "avg_duration_min": 52.2
+  },
+  "rows": [
+    {
+      "cycle_id": "CIP-250819-05",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "circuit_id": "CIRC-PAST",
+      "circuit_name": "Pasteurizer / homogenizer circuit",
+      "equipment": [
+        "PAST-01",
+        "HOMO-01",
+        "COOL-01"
+      ],
+      "start": "2025-08-19T09:00:00",
+      "end": "2025-08-19T09:58:06",
+      "duration_min": 58.1,
+      "phases": [
+        {
+          "phase": "Pre-rinse",
+          "start": "2025-08-19T09:00:00",
+          "minutes": 9.9,
+          "supply_temp_c": 34.0,
+          "return_temp_c": 30.0,
+          "flow_m3h": 19.7,
+          "pressure_bar": 2.7,
+          "conductivity_ms_cm": null,
+          "ok": true,
+          "note": null
+        },
+        {
+          "phase": "Cleaning solution circulation",
+          "start": "2025-08-19T09:09:54",
+          "minutes": 18.4,
+          "supply_temp_c": 74.2,
+          "return_temp_c": 71.1,
+          "flow_m3h": 18.2,
+          "pressure_bar": 2.69,
+          "conductivity_ms_cm": 21.4,
+          "ok": true,
+          "note": null
+        },
+        {
+          "phase": "Intermediate rinse",
+          "start": "2025-08-19T09:28:18",
+          "minutes": 9.3,
+          "supply_temp_c": 24.6,
+          "return_temp_c": 19.8,
+          "flow_m3h": 19.2,
+          "pressure_bar": 2.81,
+          "conductivity_ms_cm": null,
+          "ok": true,
+          "note": null
+        },
+        {
+          "phase": "Final rinse",
+          "start": "2025-08-19T09:37:36",
+          "minutes": 9.3,
+          "supply_temp_c": 25.6,
+          "return_temp_c": 20.0,
+          "flow_m3h": 17.1,
+          "pressure_bar": 3.17,
+          "conductivity_ms_cm": 0.34,
+          "ok": true,
+          "note": null
+        },
+        {
+          "phase": "Sanitization",
+          "start": "2025-08-19T09:46:54",
+          "minutes": 11.2,
+          "supply_temp_c": 27.9,
+          "return_temp_c": 25.6,
+          "flow_m3h": 20.2,
+          "pressure_bar": 2.86,
+          "conductivity_ms_cm": null,
+          "ok": true,
+          "note": null
+        }
+      ],
+      "solution_id": "CIP-SOL-B (demo acid)",
+      "rinse_status": "Final rinse within demo limit",
+      "completion_status": "COMPLETED",
+      "deviations": [],
+      "operator_id": "OP-22",
+      "is_mock": true
+    },
+    {
+      "cycle_id": "CIP-250819-06",
+      "report_date": "2025-08-19",
+      "shift": "Morning",
+      "circuit_id": "CIRC-PAST",
+      "circuit_name": "Pasteurizer / homogenizer circuit",
+      "equipment": [
+        "PAST-01",
+        "HOMO-01",
+        "COOL-01"
+      ],
+      "start": "2025-08-19T11:55:42",
+      "end": "2025-08-19T12:47:00",
+      "duration_min": 51.3,
+      "phases": [
+        {
+          "phase": "Pre-rinse",
+          "start": "2025-08-19T11:55:42",
+          "minutes": 8.1,
+          "supply_temp_c": 23.2,
+          "return_temp_c": 20.8,
+          "flow_m3h": 23.0,
+          "pressure_bar": 2.98,
+          "conductivity_ms_cm": null,
+          "ok": true,
+          "note": null
+        },
+        {
+          "phase": "Cleaning solution circulation",
+          "start": "2025-08-19T12:03:48",
+          "minutes": 17.3,
+          "supply_temp_c": 77.5,
+          "return_temp_c": 75.1,
+          "flow_m3h": 19.5,
+          "pressure_bar": 2.3,
+          "conductivity_ms_cm": 27.2,
+          "ok": true,
+          "note": null
+        },
+        {
+          "phase": "Intermediate rinse",
+          "start": "2025-08-19T12:21:06",
+          "minutes": 9.4,
+          "supply_temp_c": 29.7,
+          "return_temp_c": 23.9,
+          "flow_m3h": 21.9,
+          "pressure_bar": 2.89,
+          "conductivity_ms_cm": null,
+          "ok": true,
+          "note": null
+        },
+        {
+          "phase": "Final rinse",
+          "start": "2025-08-19T12:30:30",
+          "minutes": 8.2,
+          "supply_temp_c": 34.8,
+          "return_temp_c": 29.0,
+          "flow_m3h": 18.7,
+          "pressure_bar": 3.23,
+          "conductivity_ms_cm": 0.12,
+          "ok": true,
+          "note": null
+        },
+        {
+          "phase": "Sanitization",
+          "start": "2025-08-19T12:38:42",
+          "minutes": 8.3,
+          "supply_temp_c": 22.7,
+          "return_temp_c": 19.5,
+          "flow_m3h": 18.4,
+          "pressure_bar": 3.1,
+          "conductivity_ms_cm": null,
+          "ok": true,
+          "note": null
+        }
+      ],
+      "solution_id": "CIP-SOL-A (demo alkaline)",
+      "rinse_status": "Final rinse within demo limit",
+      "completion_status": "COMPLETED",
+      "deviations": [],
+      "operator_id": "OP-22",
+      "is_mock": true
+    },
+    {
+      "cycle_id": "CIP-250819-07",
+      "report_date": "2025-08-19",
+      "shift": "Afternoon",
+      "circuit_id": "CIRC-PAST",
+      "circuit_name": "Pasteurizer / homogenizer circuit",
+      "equipment": [
+        "PAST-01",
+        "HOMO-01",
+        "COOL-01"
+      ],
+      "start": "2025-08-19T16:24:38",
+      "end": "2025-08-19T17:15:08",
+      "duration_min": 50.5,
+      "phases": [
+        {
+          "phase": "Pre-rinse",
+          "start": "2025-08-19T16:24:38",
+          "minutes": 7.0,
+          "supply_temp_c": 25.1,
+          "return_temp_c": 19.1,
+          "flow_m3h": 23.1,
+          "pressure_bar": 2.71,
+          "conductivity_ms_cm": null,
+          "ok": true,
+          "note": null
+        },
+        {
+          "phase": "Cleaning solution circulation",
+          "start": "2025-08-19T16:31:38",
+          "minutes": 15.9,
+          "supply_temp_c": 77.5,
+          "return_temp_c": 73.2,
+          "flow_m3h": 19.2,
+          "pressure_bar": 3.25,
+          "conductivity_ms_cm": 24.5,
+          "ok": true,
+          "note": null
+        },
+        {
+          "phase": "Intermediate rinse",
+          "start": "2025-08-19T16:47:32",
+          "minutes": 8.1,
+          "supply_temp_c": 20.1,
+          "return_temp_c": 14.9,
+          "flow_m3h": 20.0,
+          "pressure_bar": 2.62,
+          "conductivity_ms_cm": null,
+          "ok": true,
+          "note": null
+        },
+        {
+          "phase": "Final rinse",
+          "start": "2025-08-19T16:55:38",
+          "minutes": 8.3,
+          "supply_temp_c": 23.0,
+          "return_temp_c": 20.7,
+          "flow_m3h": 21.9,
+          "pressure_bar": 2.64,
+          "conductivity_ms_cm": 0.31,
+          "ok": true,
+          "note": null
+        },
+        {
+          "phase": "Sanitization",
+          "start": "2025-08-19T17:03:56",
+          "minutes": 11.2,
+          "supply_temp_c": 29.5,
+          "return_temp_c": 25.7,
+          "flow_m3h": 17.9,
+          "pressure_bar": 2.91,
+          "conductivity_ms_cm": null,
+          "ok": true,
+          "note": null
+        }
+      ],
+      "solution_id": "CIP-SOL-A (demo alkaline)",
+      "rinse_status": "Final rinse within demo limit",
+      "completion_status": "COMPLETED",
+      "deviations": [],
+      "operator_id": "OP-21",
+      "is_mock": true
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total": 8,
+    "pages": 1
+  },
+  "columns": [
+    {
+      "key": "cycle_id",
+      "label": "Cycle"
+    },
+    {
+      "key": "circuit_id",
+      "label": "Circuit"
+    },
+    {
+      "key": "circuit_name",
+      "label": "Circuit name"
+    },
+    {
+      "key": "start",
+      "label": "Start",
+      "kind": "datetime"
+    },
+    {
+      "key": "end",
+      "label": "End",
+      "kind": "datetime"
+    },
+    {
+      "key": "duration_min",
+      "label": "Duration",
+      "unit": "min"
+    },
+    {
+      "key": "solution_id",
+      "label": "Solution"
+    },
+    {
+      "key": "rinse_status",
+      "label": "Rinse status"
+    },
+    {
+      "key": "completion_status",
+      "label": "Completion",
+      "kind": "status"
+    },
+    {
+      "key": "deviations",
+      "label": "Deviations"
+    },
+    {
+      "key": "operator_id",
+      "label": "Operator",
+      "hidden": true
+    },
+    {
+      "key": "equipment",
+      "label": "Equipment",
+      "hidden": true
+    }
+  ],
+  "charts": {
+    "criteria": {
+      "phases": [
+        [
+          "Pre-rinse",
+          6,
+          null
+        ],
+        [
+          "Cleaning solution circulation",
+          15,
+          70.0
+        ],
+        [
+          "Intermediate rinse",
+          6,
+          null
+        ],
+        [
+          "Final rinse",
+          6,
+          null
+        ],
+        [
+          "Sanitization",
+          8,
+          null
+        ]
+      ],
+      "final_rinse_max_conductivity_ms_cm": 0.5,
+      "min_flow_m3h": 15.0
+    }
+  },
+  "notes": [
+    "Completion is judged on configurable demo criteria per phase (minimum time, minimum supply temperature, minimum flow, final-rinse conductivity) — not on elapsed time alone.",
+    "Failed and incomplete cycles stay visible. No chemical dosing instructions are provided — visualization only."
+  ]
+}

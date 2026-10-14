@@ -114,6 +114,64 @@ export function getStationParams(userCfg) {
   return userCfg.stationParams || {};
 }
 
+// Fixed set of recognized parameter kinds — a dropdown rather than free
+// text (also used by StationNamesConfigPage.jsx), so any code that
+// groups/identifies these across stations can match on an exact known
+// string instead of whatever variant spelling a free-text field would
+// allow. Exported from here (rather than kept private to
+// StationNamesConfigPage.jsx) because StationColumnConfigPage.jsx /
+// StationInfoPage.jsx need the same list to turn each kind into its own
+// column — see getStationParamKinds / findStationParamEntry below.
+export const PARAM_KINDS = ['Actual Temperature', 'Actual Current', 'Calculated Current', 'Set Current', 'Actual PH'];
+
+// Slug used as this kind's column id on the Column Config / StationWise
+// Info pages — stable across renames of the display label since it's
+// derived from the fixed PARAM_KINDS string, not user-typed text.
+export function paramKindColId(kind) {
+  return `param_${kind.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+}
+
+// Which PARAM_KINDS are actually configured on at least one station right
+// now — Column Config / StationWise Info only show a column for a kind
+// that's in use somewhere, never all of PARAM_KINDS unconditionally (most
+// stations only use one or two of the five kinds).
+export function getStationParamKinds(stationParams) {
+  const used = new Set();
+  Object.values(stationParams || {}).forEach(entries => {
+    (entries || []).forEach(e => used.add(e.label));
+  });
+  return PARAM_KINDS.filter(k => used.has(k));
+}
+
+// A station's own entry for one parameter kind (its flexible stationParams
+// list can have zero or more entries per kind — this picks the first
+// match), plus the index that entry would be read live at: tag name
+// STATION_<id>_P<index> (see station_param_tag_name in plc_publisher.py —
+// the index is the entry's position in that station's OWN array, so it
+// must be found by scanning, not assumed).
+export function findStationParamEntry(stationParams, stationId, kind) {
+  const entries = (stationParams || {})[stationId] || [];
+  const index = entries.findIndex(e => e.label === kind);
+  return index === -1 ? null : { entry: entries[index], index };
+}
+
+// Upserts (stationId, kind) -> address into a stationParams draft, without
+// disturbing that station's other parameter entries — used by
+// StationColumnConfigPage.jsx's per-kind columns, which edit the exact same
+// userCfg.stationParams StationNamesConfigPage.jsx does, just column-wise
+// instead of row-wise. A brand-new entry defaults to float32 with no unit,
+// same default StationNamesConfigPage.jsx's own "+ Add Parameter" uses.
+export function setStationParamAddress(stationParams, stationId, kind, address) {
+  const entries = (stationParams[stationId] || []).slice();
+  const index = entries.findIndex(e => e.label === kind);
+  if (index === -1) {
+    entries.push({ label: kind, address, type: 'float32', unit: '' });
+  } else {
+    entries[index] = { ...entries[index], address };
+  }
+  return { ...stationParams, [stationId]: entries };
+}
+
 // ── Station Load Number tag ───────────────────────────────────────────────────
 // One dedicated PLC address per station (always int16, not user-selectable),
 // separate from the flexible stationParams list. Source of truth:
@@ -176,15 +234,18 @@ export function getWagonPartNumberTags(userCfg) {
 
 // Resolves a saved order against the columns that actually exist right now:
 // drops ids for columns that were since removed, and appends (at the end,
-// in their natural order) any column — fixed or custom — not yet present in
-// the saved order, e.g. a custom column added after the order was last
-// saved. Both pages call this the same way so they can never disagree.
-export function orderStationColumns(order, extraCols) {
+// in their natural order) any column — fixed, custom, or a param-kind one
+// (paramColIds, e.g. ['param_actual_ph'] — see getStationParamKinds /
+// paramKindColId) — not yet present in the saved order, e.g. a custom
+// column added, or a new parameter kind first used, after the order was
+// last saved. Both pages call this the same way so they can never disagree.
+export function orderStationColumns(order, extraCols, paramColIds = []) {
   const customIds = extraCols.map(c => c.id);
-  const known = new Set([...FIXED_STATION_COLS, ...customIds]);
-  const base = (order && order.length ? order : [...FIXED_STATION_COLS, ...customIds])
+  const allIds = [...FIXED_STATION_COLS, ...customIds, ...paramColIds];
+  const known = new Set(allIds);
+  const base = (order && order.length ? order : allIds)
     .filter(id => known.has(id));
-  const missing = [...FIXED_STATION_COLS, ...customIds].filter(id => !base.includes(id));
+  const missing = allIds.filter(id => !base.includes(id));
   return [...base, ...missing];
 }
 

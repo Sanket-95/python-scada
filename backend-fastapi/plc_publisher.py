@@ -41,10 +41,17 @@ from tag_store import TagStore
 
 try:
     import db_client
-except ImportError:
-    # pymssql not installed in this venv yet — the Part Number column simply
-    # stays dark (see _resolve_wagon_part_numbers) rather than taking down
-    # the rest of PLC polling, which must keep working regardless.
+except ImportError as _db_import_err:
+    # pymssql not installed/importable in THIS process — the Part Number
+    # column simply stays dark (see _resolve_wagon_part_numbers) rather than
+    # taking down the rest of PLC polling, which must keep working
+    # regardless. Logged unconditionally (not behind DEBUG_LOG) because a
+    # deployed exe silently missing this is exactly the "Part Number always
+    # reads 0/null" symptom with nothing in the console to explain it —
+    # most commonly pymssql's own DLLs not having been bundled into the exe
+    # (see exe_builder.py's --collect-all pymssql).
+    print(f"[DB] db_client unavailable — Part Number column will stay empty: "
+          f"{type(_db_import_err).__name__}: {_db_import_err}", flush=True)
     db_client = None
 
 POLL_INTERVAL_S = 0.5  # was 1.5 — the one real source of tag-change latency
@@ -258,16 +265,29 @@ _last_part_lookup: dict[str, str] = {}
 
 def _resolve_wagon_part_numbers(saved_cfg: dict, store: TagStore, values_by_name: dict) -> None:
     wagon_cfg = saved_cfg.get("wagonPartNumberTags") or {}
-    if not wagon_cfg or db_client is None:
+    if not wagon_cfg:
+        if DEBUG_LOG:
+            print("[DB] no wagonPartNumberTags configured — Part Number stays empty", flush=True)
+        return
+    if db_client is None:
+        if DEBUG_LOG:
+            print("[DB] db_client is None (pymssql import failed earlier — see startup log) "
+                  "— Part Number stays empty", flush=True)
         return
     db_cfg = config_store.load_json("savedDbConfig.json")
     if not db_cfg or not (db_cfg.get("server") or "").strip():
+        if DEBUG_LOG:
+            print("[DB] savedDbConfig.json has no server set — Part Number stays empty", flush=True)
         return
 
     for wagon_id, _tags in wagon_cfg.items():
         raw = {suffix: values_by_name.get(wagon_part_source_tag_name(wagon_id, suffix))
                for _, suffix, _dt in _PART_NUMBER_FIELDS}
         if any(v is None for v in raw.values()):
+            if DEBUG_LOG:
+                missing = [suffix for suffix, v in raw.items() if v is None]
+                print(f"[DB] W{wagon_id}: missing source tag(s) {missing} "
+                      f"(not configured, or PLC hasn't answered yet) — skipping", flush=True)
             continue  # one of the 6 required tags isn't configured/answered yet
 
         try:
@@ -277,10 +297,14 @@ def _resolve_wagon_part_numbers(saved_cfg: dict, store: TagStore, values_by_name
             month   = int(raw["MONTH"])
             date    = int(raw["DATE"])
             load_no = int(raw["LOADNO"])
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as e:
+            if DEBUG_LOG:
+                print(f"[DB] W{wagon_id}: non-numeric source tag value {raw!r} ({e}) — skipping", flush=True)
             continue
 
         if get_put != 2 or stn_no <= 0:
+            if DEBUG_LOG:
+                print(f"[DB] W{wagon_id}: GETPUT={get_put} STNNO={stn_no} — not a Put event, skipping", flush=True)
             continue  # only a Put event with a real station number is worth looking up
 
         # PLC stores the year as 2 digits (26 = 2026) — see CLAUDE.md.
@@ -300,6 +324,13 @@ def _resolve_wagon_part_numbers(saved_cfg: dict, store: TagStore, values_by_name
             store.set_many([(station_part_number_tag_name(stn_no), part_name, "")])
             if DEBUG_LOG:
                 print(f"[DB]   W{wagon_id} Put {composed} -> station {stn_no} PartName={part_name!r}", flush=True)
+        elif DEBUG_LOG:
+            # Query ran fine but no [dbo].[LoadPartDetails] row matched this
+            # exact LoadNumber string — composed is logged so it can be
+            # pasted straight into SSMS to check for a formatting mismatch
+            # (e.g. zero-padding, separators) against what's actually stored.
+            print(f"[DB]   W{wagon_id} Put — no LoadPartDetails row for LoadNumber={composed!r}, "
+                  f"station {stn_no} Part Number stays unset", flush=True)
 
 
 # TEMP DEBUG — prints every poll's PLC connection + each tag's live read to

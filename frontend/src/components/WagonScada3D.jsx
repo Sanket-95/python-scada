@@ -25,7 +25,7 @@ import {
   loadPageSelectionFromServer, pruneToCatalog, isPageEnabled,
 } from '../config/pageSelection';
 import { isRunningInsideExe } from '../config/runtimeInfo';
-import { getTankTags, getWagonTags, getStationParams, getStationLoadNumbers, getStationExtraCols, getStationExtraValues, getStationColumnOrder, getWagonPartNumberTags } from '../config/tagConfig';
+import { getTankTags, getWagonTags, getStationParams, getStationLoadNumbers, getStationExtraCols, getStationExtraValues, getStationColumnOrder, getWagonPartNumberTags, getStationParamKinds, paramKindColId } from '../config/tagConfig';
 import barralImg from '../../barral.png';
 import {
   loadUserConfig, saveUserConfig, buildSimConfig,
@@ -1938,6 +1938,38 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
     return out;
   }, [grpcTags]);
 
+  // Which parameter kinds (Actual Temperature/PH/Current/…) are configured
+  // on at least one station right now — drives both StationColumnConfigPage.jsx's
+  // and StationInfoPage.jsx's extra per-kind columns (see each page's own
+  // comments on this feature).
+  const stationParamKinds = useMemo(() => getStationParamKinds(stationParams), [stationParams]);
+
+  // Live value per station per parameter-kind column, keyed by
+  // paramKindColId(kind) — {stationId: {colId: value}}, same shape as
+  // stationExtraLiveValues above so StationInfoPage.jsx's cell renderer
+  // handles both the same way. Reuses the exact tag name and PARAM_SCALE
+  // engineering-unit scaling stationParamValues (the hover tooltip) already
+  // uses, so a value shown here always matches the tooltip.
+  const stationParamColValues = useMemo(() => {
+    const out = {};
+    Object.entries(stationParams).forEach(([stationId, entries]) => {
+      (entries || []).forEach((p, idx) => {
+        if (!stationParamKinds.includes(p.label)) return;
+        const live = grpcTags[`STATION_${stationId}_P${idx}`];
+        if (!live) return;
+        const num = Number(live.value);
+        const scale = PARAM_SCALE[p.label] ?? 1;
+        const value = Number.isFinite(num) ? (num * scale).toFixed(2) : live.value;
+        out[stationId] = out[stationId] || {};
+        // First entry of a kind wins if a station has duplicates — same
+        // convention as tagConfig.js's findStationParamEntry/setStationParamAddress.
+        const colId = paramKindColId(p.label);
+        if (out[stationId][colId] === undefined) out[stationId][colId] = value;
+      });
+    });
+    return out;
+  }, [stationParams, stationParamKinds, grpcTags]);
+
   // Tank tag values mirror simulation station hasLoad — future: replaced by gRPC writes
   const tagValues = useMemo(() => {
     const v = {};
@@ -2207,6 +2239,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               extraLiveValues={stationExtraLiveValues}
               columnOrder={stationColumnOrder}
               partNumberValues={partNumberValues}
+              paramKinds={stationParamKinds}
+              paramColValues={stationParamColValues}
               connected={grpcConnected}
               onBack={() => setView(lastSceneView)}
             />
@@ -2221,9 +2255,11 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               columnOrder={stationColumnOrder}
               wagonTags={wagonTags}
               partNumberTags={wagonPartNumberTags}
+              stationParams={stationParams}
               onSave={handleSaveStationCols}
               onSaveExtra={handleSaveStationExtra}
               onSavePartNumberTags={handleSaveWagonPartNumberTags}
+              onSaveStationParams={handleSaveStationParams}
               onBack={() => setView('config')}
             />
           )}

@@ -76,7 +76,18 @@ savedUserConfig.json / savedPlcConfig.json <--- config_store.py ------+
   PyInstaller via the App Builder UI page). Seeds `savedPageSelection/PlcConfig/
   UserConfig/HeaderConfig/DbConfig.json` into the exe — nothing else. Any new persisted
   feature that isn't inside `userCfg` (or one of these other seeded files) won't
-  make it into a generated exe.
+  make it into a generated exe. Also passes `--collect-all pymssql` to PyInstaller
+  (only when pymssql is actually importable in the venv running the build — checked
+  via `importlib.util.find_spec`, so a build without it still succeeds and Part
+  Number just stays dark, same as today). **Without this, a deployed exe's Part
+  Number column silently never looks anything up**: pymssql is a C extension
+  wrapping FreeTDS and ships its own DLLs inside the wheel, which PyInstaller's
+  static import analysis doesn't find on its own — `plc_publisher.py`'s guarded
+  `import db_client` then fails at exe runtime (even though it imports fine in the
+  dev venv) and falls back to `db_client = None`, with the import failure now
+  printed to the exe's console (previously silent — see Gotchas #6). If a report
+  of "Part Number always 0/empty in the built exe" ever comes up again after this
+  fix, check that console line first.
 - `test_exe_builder.py` + `plc_test_logger.py` — builds a **tiny console-only exe**
   (no frontend, no FastAPI) that just connects to the saved PLC config and prints a
   handful of ad-hoc tags to the console forever. Triggered from the "Quick Test EXE"
@@ -218,12 +229,35 @@ bug, or a wrong port — not a wrong protocol.
   `-A`/`-M`/`-S` label suffix. A legend bar (semi-transparent, bottom of the 2D/3D
   viewport) explains the colors.
 - **Station parameters**: a *flexible* (zero-to-many per station) list, each entry
-  `{label, address, type, unit}`. `label` is a closed dropdown (`PARAM_KINDS`:
-  Actual Temperature, Actual Current, Calculated Current, Set Current, Actual PH) —
-  deliberately not free text, so other code can reliably group by kind. Published
-  under a synthesized tag name `STATION_<id>_P<index>` (see
-  `station_param_tag_name` in `plc_publisher.py` — frontend and backend must agree
-  on this exact naming). Shown on that tank's hover tooltip with the live value.
+  `{label, address, type, unit}`. `label` is a closed dropdown (`PARAM_KINDS` in
+  `tagConfig.js` — Actual Temperature, Actual Current, Calculated Current, Set
+  Current, Actual PH; exported from there rather than kept private to
+  `StationNamesConfigPage.jsx` so the Column Config/StationWise Info pages below
+  can use the same list) — deliberately not free text, so other code can reliably
+  group by kind. Published under a synthesized tag name `STATION_<id>_P<index>`
+  (see `station_param_tag_name` in `plc_publisher.py` — frontend and backend must
+  agree on this exact naming). Shown on that tank's hover tooltip with the live
+  value. **Also surfaced as columns on the Column Config / StationWise Info pages**
+  (on request — "same parameter apply on this screen also"): any kind already
+  configured on at least one station gets its own column on both
+  `StationColumnConfigPage.jsx` (`tagConfig.js`'s `getStationParamKinds` decides
+  which — only kinds actually in use, never all of `PARAM_KINDS` unconditionally)
+  and `StationInfoPage.jsx`, id'd by `paramKindColId(kind)` and folded into the
+  same `orderStationColumns()` sequencing as the fixed/custom columns (its
+  signature grew a third `paramColIds` argument for this). These columns are
+  **not addable/removable from the Column Config page** — a kind only exists once
+  it's added via "+ Add Parameter" on STATION INFO — NAME CONFIGURATION — but
+  every station's address for that kind **is editable from both pages**, via the
+  shared `tagConfig.js` helpers `findStationParamEntry`/`setStationParamAddress`,
+  which edit the exact same `userCfg.stationParams` structure either page saves
+  (if a station has more than one entry of the same kind — allowed — these
+  helpers and the Column Config column only ever address the first; editing
+  additional duplicates still needs the Name Configuration page). Live values on
+  `StationInfoPage.jsx` come from a new `paramColValues` prop built in
+  `WagonScada3D.jsx` (`stationParamColValues`), reusing the exact same tag name
+  and `PARAM_SCALE` engineering-unit scaling as the hover tooltip's own
+  `stationParamValues`, so a value shown in this column always matches the
+  tooltip.
 - **Load Number**: a *separate*, single, always-`int16` tag per station (not part
   of the flexible list above) — tag name `STATION_<id>_LOADNUM`. Has its own
   array-fill UI (type a start address, auto-fills every station sequentially).
@@ -283,7 +317,13 @@ bug, or a wrong port — not a wrong protocol.
   station's address for that column incrementally (same letters-prefix +
   zero-padded-number scheme as `StationNamesConfigPage.jsx`'s Load Number
   array fill), after which any individual row can still be hand-edited. A
-  column can be removed with the × next to its name. Source of truth:
+  column can be removed with the × next to its name. **The data type is also
+  editable after creation** (on request — it used to be a one-shot choice
+  made only in the "+ Add Column" form, shown read-only afterward; the
+  header now has a live `TAG_DATA_TYPES` `<select>` instead of a plain label)
+  — takes effect on the next poll since `plc_publisher.py`'s
+  `_station_extra_col_tags` reads `col.get("dataType")` fresh from
+  `stationExtraCols` every tick, no backend change needed for this. Source of truth:
   `userCfg.stationExtraCols` (`[{id, name, dataType}, ...]`) +
   `userCfg.stationExtraValues` (`{stationId: {colId: address}}`), both saved
   together via `onSaveExtra` from the same Save button. The backend
@@ -426,6 +466,20 @@ bug, or a wrong port — not a wrong protocol.
    whenever a new live-data prop is added, or the component silently won't
    re-render when that data changes (see `Tank3D`'s comparator, which explicitly
    checks `stationParamValues[id]` for this reason).
+6. **A guarded `try: import X / except ImportError: X = None` pattern (used for
+   `db_client`/pymssql, so missing it never takes down the rest of PLC polling)
+   must still log the exception, not swallow it silently.** A silent fallback here
+   was exactly why a deployed exe's Part Number column came back empty with
+   nothing in the console to explain why — pymssql imported fine in the dev venv
+   but failed in the frozen exe because its DLLs weren't bundled (see
+   `exe_builder.py`'s `--collect-all pymssql` fix). `plc_publisher.py` now prints
+   the actual `ImportError` at startup, and `_resolve_wagon_part_numbers` now logs
+   (behind `DEBUG_LOG`) every other point where it would otherwise silently do
+   nothing — no `wagonPartNumberTags` configured, no DB server configured, a
+   required source tag not yet answered, a non-numeric tag value, a Get (not Put)
+   event, and a DB query that ran but matched no `LoadPartDetails` row. If a
+   derived/looked-up value ever "just doesn't show up" again, check this function's
+   console output first before assuming the PLC or DB side is wrong.
 
 ## Dev workflow
 

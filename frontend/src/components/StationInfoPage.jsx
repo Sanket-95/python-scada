@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { orderStationColumns } from '../config/tagConfig';
+import { orderStationColumns, paramKindColId } from '../config/tagConfig';
 
 // This page shows exactly the columns configured on the Column Config page
 // (StationColumnConfigPage.jsx, "Sourced from Mimic Page Config"), in that
@@ -8,12 +8,17 @@ import { orderStationColumns } from '../config/tagConfig';
 // whatever custom columns were added there with "+ Add Column" (see
 // activeCols below, built with the shared orderStationColumns() so both
 // pages can never disagree on sequence). No other columns exist on this
-// page — Wagon/Operation/Duration/Client Name/Part Name/Temp/Current/pH
-// were all removed since none of them are part of the Column Config page's
-// column set. Part Number is the one fixed column that's fully live/derived
-// (a wagon's Put event -> SQL Server PartName lookup, see
-// plc_publisher.py's _resolve_wagon_part_numbers) rather than read from a
-// per-station PLC address — see the 'partNumber' case in cell() below.
+// page — Wagon/Operation/Duration/Client Name/Part Name were all removed
+// since none of them are part of the Column Config page's column set.
+// Temp/Current/pH came back, but only indirectly: a kind (Actual
+// Temperature/PH/Current/…) configured on STATION INFO — NAME
+// CONFIGURATION's flexible parameter list gets its own column here too —
+// see paramKinds/paramColValues below, and tagConfig.js's
+// getStationParamKinds/paramKindColId. Part Number is the one fixed column
+// that's fully live/derived (a wagon's Put event -> SQL Server PartName
+// lookup, see plc_publisher.py's _resolve_wagon_part_numbers) rather than
+// read from a per-station PLC address — see the 'partNumber' case in cell()
+// below.
 const COL_LABELS = { stNo: 'Station No', stName: 'Station Name', loadNo: 'Load No', partNumber: 'Part Number' };
 
 const T = {
@@ -52,19 +57,29 @@ function saveTablePrefs(prefs) {
 export default function StationInfoPage({
   wagons = [], stations = [], colConfig, stationNames = [], tankTags = {},
   loadNumberValues = {}, extraCols = [], extraLiveValues = {}, columnOrder,
-  partNumberValues = {}, connected = false, onBack,
+  partNumberValues = {}, paramKinds = [], paramColValues = {}, connected = false, onBack,
 }) {
   // Same column set AND sequence as the Column Config page (columnOrder is
   // its saved stationColOrder) — custom columns reflect that same column's
-  // live PLC value below (see the cell() default case).
+  // live PLC value below (see the cell() default case). paramKinds (Actual
+  // Temperature/PH/Current/… — whichever are configured on at least one
+  // station via STATION INFO — NAME CONFIGURATION, see WagonScada3D.jsx's
+  // stationParamKinds) get their own column the same way, keyed by
+  // paramKindColId(kind) and resolved through paramColValues below.
+  const paramColIds = useMemo(() => paramKinds.map(paramKindColId), [paramKinds]);
+  const paramColIdToKind = useMemo(
+    () => Object.fromEntries(paramKinds.map(k => [paramKindColId(k), k])),
+    [paramKinds]
+  );
   const activeCols = useMemo(() => {
-    const order = orderStationColumns(columnOrder, extraCols);
+    const order = orderStationColumns(columnOrder, extraCols, paramColIds);
     return order.map(id => {
       if (COL_LABELS[id]) return { id, label: COL_LABELS[id] };
+      if (paramColIdToKind[id]) return { id, label: paramColIdToKind[id] };
       const c = extraCols.find(c => c.id === id);
       return c ? { id, label: c.name } : null;
     }).filter(Boolean);
-  }, [columnOrder, extraCols]);
+  }, [columnOrder, extraCols, paramColIds, paramColIdToKind]);
   const [page, setPage]       = useState(0);
   const [tablePrefs, setTablePrefs] = useState(loadTablePrefs);
   const { paginationOn, pageSize } = tablePrefs;
@@ -285,6 +300,22 @@ export default function StationInfoPage({
                     );
                   }
                   default: {
+                    if (paramColIdToKind[id]) {
+                      // Parameter-kind column (Actual Temperature/PH/
+                      // Current/…) sourced from STATION INFO — NAME
+                      // CONFIGURATION's flexible parameter list — live value
+                      // from paramColValues (built in WagonScada3D.jsx the
+                      // same way stationParamValues/the hover tooltip is,
+                      // including the PARAM_SCALE engineering-unit scaling).
+                      // "—" until a PLC is connected and this station has
+                      // that kind configured with an address.
+                      const val = paramColValues[String(sn)]?.[id];
+                      return (
+                        <td key={id} style={tdBase({ color: val != null ? T.textWh : T.textDim })}>
+                          {val != null ? val : '—'}
+                        </td>
+                      );
+                    }
                     // Custom user-added column (Column Config page's "+ Add
                     // Column") — live value from extraLiveValues, keyed the
                     // same way plc_publisher.py publishes it

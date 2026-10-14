@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
-import { TAG_DATA_TYPES, orderStationColumns, PART_NUMBER_TAG_FIELDS } from '../config/tagConfig';
+import {
+  TAG_DATA_TYPES, orderStationColumns, PART_NUMBER_TAG_FIELDS,
+  getStationParamKinds, paramKindColId, findStationParamEntry, setStationParamAddress,
+} from '../config/tagConfig';
 
 // ── Default column definitions ─────────────────────────────────────────────
 // Empty — StationInfoPage.jsx falls back to this only when stationColCfg has
@@ -41,11 +44,18 @@ const T = {
 // Part Number Tags" panel (one row per wagon, 6 address inputs) rather than
 // a per-station cell — saved via onSavePartNumberTags into
 // userCfg.wagonPartNumberTags, alongside everything else from the same Save
-// button.
+// button. A further set of columns, one per parameter KIND (Actual
+// Temperature / PH / Current / …, see tagConfig.js's PARAM_KINDS), appears
+// automatically for any kind already configured on at least one station via
+// STATION INFO — NAME CONFIGURATION's flexible parameter list
+// (userCfg.stationParams) — not addable/removable from here, but every
+// station's address for that kind IS editable right here too (same
+// underlying tags, just a column-wise view), saved via onSaveStationParams
+// into the same userCfg.stationParams that page edits.
 export default function StationColumnConfigPage({
   tankTags = {}, stationLoadNumbers = {}, extraCols = [], extraAddrs = {}, columnOrder,
-  wagonTags = {}, partNumberTags = {},
-  onSave, onSaveExtra, onSavePartNumberTags, onBack,
+  wagonTags = {}, partNumberTags = {}, stationParams = {},
+  onSave, onSaveExtra, onSavePartNumberTags, onSaveStationParams, onBack,
 }) {
   // ── User-added custom columns ───────────────────────────────────────────
   // Local editable drafts, seeded once from the saved props (same pattern as
@@ -53,7 +63,31 @@ export default function StationColumnConfigPage({
   // and the existing read-only rows below in one shot.
   const [cols, setCols]   = useState(() => extraCols);
   const [addrs, setAddrs] = useState(() => extraAddrs);
-  const [order, setOrder] = useState(() => orderStationColumns(columnOrder, extraCols));
+
+  // ── Parameter-kind columns (Actual Temperature / PH / Current / …) ─────
+  // These are NOT user-created here — a kind only shows up as a column once
+  // it's been added to at least one station via "+ Add Parameter" on
+  // STATION INFO — NAME CONFIGURATION (StationNamesConfigPage.jsx). Once it
+  // exists, though, every station's address for that kind can be edited
+  // right here too (same userCfg.stationParams, same tags — just a
+  // column-wise view instead of that page's row-wise one), so a value typed
+  // on either page shows up on the other. If a station has more than one
+  // entry of the same kind (StationNamesConfigPage.jsx allows that), this
+  // column edits only the first — editing additional duplicates still needs
+  // that page.
+  const [paramsDraft, setParamsDraft] = useState(() => JSON.parse(JSON.stringify(stationParams)));
+  const paramKinds = useMemo(() => getStationParamKinds(paramsDraft), [paramsDraft]);
+  const paramColIds = useMemo(() => paramKinds.map(paramKindColId), [paramKinds]);
+  const paramColIdToKind = useMemo(
+    () => Object.fromEntries(paramKinds.map(k => [paramKindColId(k), k])),
+    [paramKinds]
+  );
+
+  const [order, setOrder] = useState(() => orderStationColumns(columnOrder, extraCols, paramColIds));
+
+  const setParamCell = (stationId, kind, value) => {
+    setParamsDraft(prev => setStationParamAddress(prev, stationId, kind, value));
+  };
 
   const [addingCol, setAddingCol]   = useState(false);
   const [newColName, setNewColName] = useState('');
@@ -82,6 +116,10 @@ export default function StationColumnConfigPage({
     setNewColName('');
     setNewColType(TAG_DATA_TYPES[0].id);
     setAddingCol(false);
+  };
+
+  const setColumnType = (colId, dataType) => {
+    setCols(prev => prev.map(c => (c.id === colId ? { ...c, dataType } : c)));
   };
 
   const removeColumn = colId => {
@@ -131,6 +169,18 @@ export default function StationColumnConfigPage({
     const [, prefix, digits] = m;
     const width = digits.length;
     const base  = parseInt(digits, 10);
+    const paramKind = paramColIdToKind[colId];
+    if (paramKind) {
+      setParamsDraft(prev => {
+        let next = prev;
+        rows.forEach((row, i) => {
+          const address = `${prefix}${String(base + i).padStart(width, '0')}`;
+          next = setStationParamAddress(next, String(row.stationNo), paramKind, address);
+        });
+        return next;
+      });
+      return;
+    }
     setAddrs(prev => {
       const next = { ...prev };
       rows.forEach((row, i) => {
@@ -225,6 +275,47 @@ export default function StationColumnConfigPage({
         </th>
       );
     }
+    const paramKind = paramColIdToKind[colId];
+    if (paramKind) {
+      // Sourced from STATION INFO — NAME CONFIGURATION, not addable/
+      // removable here — no × button, since there's nothing to delete
+      // from this page's point of view (the entry itself still lives on
+      // that page; this is just another place to edit its address).
+      return (
+        <th key={colId} style={{
+          width: 150, minWidth: 150, padding: '6px 8px', fontSize: 9, fontWeight: 700,
+          color: T.tealBr, letterSpacing: 1.1, background: T.cardHdr,
+          borderBottom: `2px solid ${T.teal}`, textAlign: 'center',
+          borderRight: `1px solid ${T.border}`,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 }}>
+            <MoveButtons colId={colId} />
+            <span style={{ whiteSpace: 'nowrap' }}>{paramKind.toUpperCase()}</span>
+          </div>
+          <div style={{ fontSize: 8, fontWeight: 500, color: T.textDim, letterSpacing: 0.5, marginBottom: 4 }}>
+            from Name Configuration
+          </div>
+          <input
+            value={colStarts[colId] || ''}
+            onChange={e => setColStarts(prev => ({ ...prev, [colId]: e.target.value }))}
+            onBlur={() => fillColumnFromStart(colId)}
+            placeholder="Start addr, e.g. D500"
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              background: T.inputBg, color: T.inputText,
+              border: `1.5px solid ${T.border}`, borderRadius: 4,
+              padding: '4px 6px', fontSize: 11, fontFamily: 'monospace', outline: 'none',
+              fontWeight: 400, letterSpacing: 0,
+            }}
+          />
+          {colErrors[colId] && (
+            <div style={{ fontSize: 8, color: T.red, fontWeight: 600, marginTop: 2, whiteSpace: 'normal' }}>
+              {colErrors[colId]}
+            </div>
+          )}
+        </th>
+      );
+    }
     const col = cols.find(c => c.id === colId);
     if (!col) return null;
     return (
@@ -242,9 +333,20 @@ export default function StationColumnConfigPage({
             fontWeight: 900, cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1,
           }}>×</button>
         </div>
-        <div style={{ fontSize: 8, fontWeight: 500, color: T.textDim, letterSpacing: 0.5, marginBottom: 4 }}>
-          {TAG_DATA_TYPES.find(t => t.id === col.dataType)?.label || col.dataType}
-        </div>
+        <select
+          value={col.dataType}
+          onChange={e => setColumnType(col.id, e.target.value)}
+          title="Data type — editable any time, not just when the column is created"
+          style={{
+            width: '100%', boxSizing: 'border-box', marginBottom: 4,
+            background: T.inputBg, color: T.inputText,
+            border: `1.5px solid ${T.border}`, borderRadius: 4,
+            padding: '3px 4px', fontSize: 9.5, fontFamily: 'inherit', outline: 'none',
+            fontWeight: 500, cursor: 'pointer',
+          }}
+        >
+          {TAG_DATA_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+        </select>
         <input
           value={colStarts[col.id] || ''}
           onChange={e => setColStarts(prev => ({ ...prev, [col.id]: e.target.value }))}
@@ -300,6 +402,27 @@ export default function StationColumnConfigPage({
       return (
         <td key={colId} style={{ ...TD, padding: '6px 10px', fontSize: 11, textAlign: 'center', color: T.textDim, fontStyle: 'italic' }}>
           Live — wagon Put event
+        </td>
+      );
+    }
+    const paramKind = paramColIdToKind[colId];
+    if (paramKind) {
+      const address = findStationParamEntry(paramsDraft, stationId, paramKind)?.entry?.address || '';
+      return (
+        <td key={colId} style={{ ...TD, padding: '5px 8px', textAlign: 'center' }}>
+          <input
+            value={address}
+            onChange={e => setParamCell(stationId, paramKind, e.target.value)}
+            placeholder="e.g. D500"
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              background: T.inputBg, color: T.inputText,
+              border: `1.5px solid ${T.border}`, borderRadius: 4,
+              padding: '5px 9px', fontSize: 12, fontFamily: 'monospace', outline: 'none',
+            }}
+            onFocus={e => e.target.style.borderColor = T.teal}
+            onBlur={e  => e.target.style.borderColor = T.border}
+          />
         </td>
       );
     }
@@ -523,7 +646,7 @@ export default function StationColumnConfigPage({
           color: T.textLt, cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',
         }}>← Back to Config</button>
 
-        <button onClick={() => { onSave(rows); onSaveExtra?.(cols, addrs, order); onSavePartNumberTags?.(pnTags); }} style={{
+        <button onClick={() => { onSave(rows); onSaveExtra?.(cols, addrs, order); onSavePartNumberTags?.(pnTags); onSaveStationParams?.(paramsDraft); }} style={{
           padding: '10px 32px', fontSize: 13, fontWeight: 700,
           background: T.teal, border: 'none', color: '#FFFFFF',
           cursor: 'pointer', borderRadius: 6, fontFamily: 'inherit',

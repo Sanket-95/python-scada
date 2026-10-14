@@ -24,6 +24,7 @@ backend restart loses in-progress/finished build records (the exe files on
 disk are unaffected).
 """
 
+import importlib.util
 import json
 import re
 import subprocess
@@ -127,6 +128,23 @@ def _run_build(build_id: str, client_name: str, selection: dict) -> None:
             "--hidden-import", "uvicorn.protocols.http.auto",
             "--hidden-import", "uvicorn.protocols.websockets.auto",
             "--hidden-import", "uvicorn.lifespan.on",
+        ]
+        # pymssql (Part Number column's DB lookup — db_client.py) is a C
+        # extension wrapping FreeTDS, shipping its own DLLs inside the wheel.
+        # PyInstaller's static import analysis finds the pure-Python import
+        # fine but misses those bundled binaries, so a built exe would start,
+        # hit the `import db_client` try/except in plc_publisher.py, and
+        # silently fall back to db_client = None — Part Number then never
+        # looks anything up, with nothing in the console explaining why
+        # (this was the actual cause of a deployed exe showing Part Number
+        # as empty/0 when dev worked fine). --collect-all pulls in every
+        # file pymssql's wheel ships, DLLs included. Only added when pymssql
+        # is actually installed in THIS venv — omitted entirely otherwise,
+        # so a build without it still succeeds (Part Number just stays dark,
+        # same as today).
+        if importlib.util.find_spec("pymssql") is not None:
+            cmd += ["--collect-all", "pymssql"]
+        cmd += [
             "--distpath", str(dist_dir),
             "--workpath", str(work_dir),
             "--specpath", str(spec_dir),

@@ -480,6 +480,28 @@ bug, or a wrong port — not a wrong protocol.
    event, and a DB query that ran but matched no `LoadPartDetails` row. If a
    derived/looked-up value ever "just doesn't show up" again, check this function's
    console output first before assuming the PLC or DB side is wrong.
+7. **A config page's Save button that calls several `handleSave*` props back-to-
+   back in one click (Station Info Column Config: `onSave` + `onSaveExtra` +
+   `onSavePartNumberTags` + `onSaveStationParams`; Station Info Name
+   Configuration: `onSave` + `onSaveParams` + `onSaveParamLabels` +
+   `onSaveLoadNumbers`) will silently drop every field except the LAST call's if
+   each `handleSave*` builds its `newCfg` as `{ ...userCfg, ownField: ... }` off
+   the plain `userCfg` state variable** — that variable is a stale closure
+   snapshot from this render, unchanged by an earlier `setUserCfg` call in the
+   same synchronous click (no re-render happens between them), so every call in
+   the chain computes its `newCfg` from the SAME pre-click data and each
+   `setUserCfg`/disk-write overwrites the previous one's field instead of merging
+   with it. **Reported symptom**: editing a custom column's data type on Station
+   Info Column Config and clicking Save showed the *previous* data type again on
+   reload — the data-type edit was the 2nd of 4 chained calls, clobbered by the
+   3rd/4th. Fixed with `userCfgRef` (a `useRef` kept in sync with `userCfg` on
+   every render) in `WagonScadaApp` (`WagonScada3D.jsx`): every `handleSave*`
+   now reads `userCfgRef.current` instead of `userCfg`, and sets
+   `userCfgRef.current = newCfg` immediately after computing it — so the next
+   handler in the same click chain builds on top of the previous one's change
+   instead of a stale snapshot. **Any new `handleSave*` added to this component
+   must follow the same `userCfgRef.current` pattern**, especially if its page's
+   Save button might ever call it alongside another handler.
 
 ## Dev workflow
 

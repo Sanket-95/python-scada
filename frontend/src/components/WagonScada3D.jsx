@@ -1628,6 +1628,24 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   const [plcMode, setPlcMode] = useState(true); // AUTO/MANUAL — manual toggle for now, no real mode source yet
   const sceneFullscreenRef = useRef(null);
 
+  // Several config pages (Column Config, Station Names) call MULTIPLE
+  // handleSave* handlers back-to-back from one Save button, all in the same
+  // synchronous click — e.g. onSave(...); onSaveExtra(...);
+  // onSavePartNumberTags(...); onSaveStationParams(...). Each handler used to
+  // build its newCfg as {...userCfg, ownField: ...} off the plain `userCfg`
+  // closure variable, which is NOT updated until the next render — so every
+  // call in the chain read the SAME pre-click snapshot, and only the LAST
+  // call's setUserCfg (and disk write) actually stuck; every earlier call's
+  // field silently reverted on the next load (reported: editing a custom
+  // column's data type on Station Info Column Config and saving showed the
+  // PREVIOUS data type again, because a later handler in that same Save
+  // click overwrote it). Every handleSave* below now reads/writes
+  // userCfgRef.current instead, updating it synchronously the moment its own
+  // newCfg is computed, so the next handler in the same click chain builds
+  // on top of it rather than clobbering it.
+  const userCfgRef = useRef(userCfg);
+  userCfgRef.current = userCfg;
+
   const simCfg       = useMemo(() => buildSimConfig(userCfg), [userCfg]);
   const wagonTypeMap = useMemo(() => getWagonTypeMap(userCfg), [userCfg]);
   const tankTags     = useMemo(() => getTankTags(userCfg), [userCfg]);
@@ -1644,7 +1662,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   // left/right order of every column (fixed + custom) — all three are
   // saved together from that page's one Save button.
   const handleSaveStationExtra = (newCols, newAddrs, newOrder) => {
-    const newCfg = { ...userCfg, stationExtraCols: newCols, stationExtraValues: newAddrs, stationColOrder: newOrder };
+    const newCfg = { ...userCfgRef.current, stationExtraCols: newCols, stationExtraValues: newAddrs, stationColOrder: newOrder };
+    userCfgRef.current = newCfg;
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
@@ -1654,7 +1673,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   // Configure Part Number Tags" panel) — saved from the same Save button as
   // the rest of that page, just a separate field in userCfg.
   const handleSaveWagonPartNumberTags = newTags => {
-    const newCfg = { ...userCfg, wagonPartNumberTags: newTags };
+    const newCfg = { ...userCfgRef.current, wagonPartNumberTags: newTags };
+    userCfgRef.current = newCfg;
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
@@ -1681,7 +1701,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   }, [userCfg]);
 
   const handleSaveStationCols = newCols => {
-    const newCfg = { ...userCfg, stationColCfg: newCols };
+    const newCfg = { ...userCfgRef.current, stationColCfg: newCols };
+    userCfgRef.current = newCfg;
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
@@ -1698,7 +1719,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   }, [userCfg]);
 
   const handleSaveStationNames = newNames => {
-    const newCfg = { ...userCfg, stationNames: newNames };
+    const newCfg = { ...userCfgRef.current, stationNames: newNames };
+    userCfgRef.current = newCfg;
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
@@ -1715,7 +1737,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   }, [userCfg]);
 
   const handleSaveTankPartitions = newGroups => {
-    const newCfg = { ...userCfg, tankPartitions: newGroups };
+    const newCfg = { ...userCfgRef.current, tankPartitions: newGroups };
+    userCfgRef.current = newCfg;
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
@@ -1732,7 +1755,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   }, [userCfg]);
 
   const handleSaveCrossTrolleys = newTrolleys => {
-    const newCfg = { ...userCfg, crossTrolleys: newTrolleys };
+    const newCfg = { ...userCfgRef.current, crossTrolleys: newTrolleys };
+    userCfgRef.current = newCfg;
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
@@ -1786,7 +1810,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   const handleBack = () => setView(lastSceneView);
 
   const handleSaveTags = newTankTags => {
-    const newCfg = { ...userCfg, tankTags: newTankTags };
+    const newCfg = { ...userCfgRef.current, tankTags: newTankTags };
+    userCfgRef.current = newCfg;
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
@@ -1794,7 +1819,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   };
 
   const handleSaveWagonTags = newWagonTags => {
-    const newCfg = { ...userCfg, wagonTags: newWagonTags };
+    const newCfg = { ...userCfgRef.current, wagonTags: newWagonTags };
+    userCfgRef.current = newCfg;
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
@@ -1804,7 +1830,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   // Called alongside handleSaveStationNames (same Save button on the
   // Station Info page) — doesn't navigate on its own, that save does.
   const handleSaveStationParams = newStationParams => {
-    const newCfg = { ...userCfg, stationParams: newStationParams };
+    const newCfg = { ...userCfgRef.current, stationParams: newStationParams };
+    userCfgRef.current = newCfg;
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
@@ -1814,7 +1841,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   // "Parameter Label" tag (e.g. "Zone A"), separate from each parameter
   // entry's own kind. Purely display metadata, no PLC tag involved.
   const handleSaveStationParamLabels = newLabels => {
-    const newCfg = { ...userCfg, stationParamLabels: newLabels };
+    const newCfg = { ...userCfgRef.current, stationParamLabels: newLabels };
+    userCfgRef.current = newCfg;
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);
@@ -1824,7 +1852,8 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   // station Load Number tag (always int16), separate from the flexible
   // parameter list.
   const handleSaveStationLoadNumbers = newAddresses => {
-    const newCfg = { ...userCfg, stationLoadNumbers: newAddresses };
+    const newCfg = { ...userCfgRef.current, stationLoadNumbers: newAddresses };
+    userCfgRef.current = newCfg;
     saveUserConfig(newCfg);
     saveUserConfigToFile(newCfg);
     setUserCfg(newCfg);

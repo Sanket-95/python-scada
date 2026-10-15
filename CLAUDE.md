@@ -406,12 +406,21 @@ bug, or a wrong port — not a wrong protocol.
   need to know in advance which station a wagon will name) — the exact same
   per-station publish convention as Load Number, so
   `StationInfoPage.jsx`'s `partNumberValues` prop just scans `grpcTags` for
-  `STATION_*_PARTNUMBER` keys. **Latched, not cleared on Get (1)**: a station's
-  last-looked-up PartName stays shown until a *different* composed load number
-  triggers a new lookup — per spec this represents "what's currently in this
-  station," not something to blank out when a wagon's Get/Put bit flips. The DB
-  is only queried on a genuinely new composed string per wagon (`_last_part_lookup`
-  cache), not every 0.5s poll tick while a wagon sits at Put=2. Because the 6
+  `STATION_*_PARTNUMBER` keys. **Cleared on Get (1), shown only while Put (2)
+  holds** (changed on request — this used to latch forever until the next
+  different Put; the user wanted a station's box to go empty again once the
+  wagon has picked the load back up, not keep showing stale data): when a
+  wagon's `GETPUT` tag reads **1**, `_resolve_wagon_part_numbers` immediately
+  publishes `""` for that event's `Station No` and drops that wagon's
+  `_last_part_lookup` dedupe entry, so the *next* Put — even one whose
+  composed load-number string happens to repeat an earlier one — is always
+  treated as new and re-queried/re-published rather than silently skipped as
+  "unchanged". (That stale dedupe entry, never cleared on Get before this
+  change, was also the root cause of the app occasionally "missing" a Part
+  Number that Movicon showed correctly — Movicon reads the raw tags live with
+  no such caching.) The DB is otherwise only queried on a genuinely new
+  composed string per wagon while GETPUT stays at 2 (`_last_part_lookup`
+  cache), not every 0.5s poll tick. Because the 6
   source tags are **per-wagon**, not per-station, they can't be configured as a
   per-station address like every other column — they get their own panel on the
   Column Config page ("⚙ Configure Part Number Tags", one row per wagon, 6

@@ -257,9 +257,12 @@ def station_part_number_tag_name(station_id) -> str:
 # Latches the composed load-number string last looked up per wagon, so a
 # wagon sitting at Get/Put == 2 across many poll ticks doesn't re-query the
 # DB every 0.5s — only a genuinely new Put event (a different composed
-# string) triggers another lookup. Intentionally never cleared on Get (1):
-# per spec this represents "what's currently in this station," which stays
-# true until the next Put overwrites it, not something to blank out.
+# string) triggers another lookup. Reset on the wagon's next Get (1) — see
+# the get_put == 1 branch below — so that if the SAME composed load number
+# ever comes around again on a later Put, it's treated as a fresh event
+# instead of being silently skipped as "unchanged" (this was the cause of
+# the app occasionally missing a Part Number that Movicon showed correctly:
+# Movicon reads the raw tags live with no such dedupe).
 _last_part_lookup: dict[str, str] = {}
 
 
@@ -300,6 +303,20 @@ def _resolve_wagon_part_numbers(saved_cfg: dict, store: TagStore, values_by_name
         except (TypeError, ValueError) as e:
             if DEBUG_LOG:
                 print(f"[DB] W{wagon_id}: non-numeric source tag value {raw!r} ({e}) — skipping", flush=True)
+            continue
+
+        if get_put == 1:
+            # Get event — on request, the station no longer keeps showing
+            # its last Part Number once the wagon has picked the load back
+            # up; clear it immediately. Also drop this wagon's dedupe entry
+            # so the next Put (even one with the exact same composed load
+            # number as before) always triggers a fresh DB lookup + publish
+            # rather than being skipped as "unchanged".
+            _last_part_lookup.pop(wagon_id, None)
+            if stn_no > 0:
+                store.set_many([(station_part_number_tag_name(stn_no), "", "")])
+            if DEBUG_LOG:
+                print(f"[DB] W{wagon_id}: GETPUT=1 (Get) — cleared Part Number at station {stn_no}", flush=True)
             continue
 
         if get_put != 2 or stn_no <= 0:

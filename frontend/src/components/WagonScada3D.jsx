@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, useTexture, Html } from '@react-three/drei';
+import { OrbitControls, useTexture, Html, Edges } from '@react-three/drei';
 import { CanvasTexture, RepeatWrapping, Color, FogExp2 } from 'three';
 import { useWagonSimulation } from '../hooks/useWagonSimulation';
 import { useTagSocket } from '../hooks/useTagSocket';
@@ -404,29 +404,33 @@ function Rack3D({ shade = false }) {
           centre row spins continuously in place so the rack clearly reads
           as a distinct, moving object, same as the barrel/basket's
           RotatingGroup elsewhere; the rest of the frame — which wouldn't
-          realistically rotate as a whole — stays fixed. */}
+          realistically rotate as a whole — stays fixed. A crisp white
+          Edges outline on each spin-row piece (on request — the glow alone
+          still didn't stand out clearly against the rest of the rack)
+          makes its silhouette pop regardless of lighting/angle. */}
       {rowYs.map((y, ri) => colXs.map((x, ci) => {
         const isSpinClip = ri === SPIN_CLIP_ROW;
         const ClipWrapper = isSpinClip ? RotatingGroup : 'group';
         const clipMat = isSpinClip ? mClipSpin : mClip;
+        const outline = isSpinClip && <Edges color="#FFFFFF" />;
         return (
           <ClipWrapper key={`${ri}-${ci}`} position={[x, y - BAR_T * 0.5, 0]}
             scale={isSpinClip ? 2.2 : 1} speed={isSpinClip ? SPIN_CLIP_SPEED : undefined}>
             {/* Saddle clip (mounts over the bar) */}
             <mesh position={[0, 0.007, 0]}>
-              <boxGeometry args={[0.026, 0.015, 0.022]} />{clipMat}
+              <boxGeometry args={[0.026, 0.015, 0.022]} />{clipMat}{outline}
             </mesh>
             {/* Left prong of U-fork */}
             <mesh position={[-0.008, -0.019, 0]}>
-              <boxGeometry args={[0.005, 0.028, 0.007]} />{clipMat}
+              <boxGeometry args={[0.005, 0.028, 0.007]} />{clipMat}{outline}
             </mesh>
             {/* Right prong of U-fork */}
             <mesh position={[0.008, -0.019, 0]}>
-              <boxGeometry args={[0.005, 0.028, 0.007]} />{clipMat}
+              <boxGeometry args={[0.005, 0.028, 0.007]} />{clipMat}{outline}
             </mesh>
             {/* Bottom crosspiece */}
             <mesh position={[0, -0.033, 0]}>
-              <boxGeometry args={[0.022, 0.005, 0.007]} />{clipMat}
+              <boxGeometry args={[0.022, 0.005, 0.007]} />{clipMat}{outline}
             </mesh>
           </ClipWrapper>
         );

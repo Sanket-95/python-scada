@@ -296,7 +296,13 @@ bug, or a wrong port — not a wrong protocol.
   other clip uses — on request, after a normal-sized clip spinning alone
   read as "not really doing anything" from a normal viewing distance; size
   + a glow make the motion unmistakable without reviving the whole-frame
-  spin this was deliberately removed from. **Rack shows a
+  spin this was deliberately removed from. **Each spin-row piece also gets
+  a crisp white `<Edges>` outline** (`@react-three/drei`'s `Edges`,
+  imported alongside `OrbitControls`/`useTexture`/`Html` — on request, the
+  glow alone still didn't stand out clearly) — a plain `<Edges color=
+  "#FFFFFF" />` JSX element reused as a child across all 4 of the clip's
+  meshes, same established pattern as reusing one `mClip`/`mTop`-style
+  material element across several meshes. **Rack shows a
   side view, not front-on** (on request — `Rack3D`'s own geometry (rail,
   posts, rows, clips) is built flat in its local X-Y plane, which faces the
   camera head-on by default; its root `<group>` now carries `rotation={[0,

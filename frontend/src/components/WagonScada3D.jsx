@@ -358,6 +358,13 @@ function Rack3D({ shade = false }) {
   const mPost = <meshStandardMaterial color={postCol}    roughness={0.20} metalness={0.85} />;
   const mBar  = <meshStandardMaterial color={barCol}     roughness={0.30} metalness={0.75} />;
   const mClip = <meshStandardMaterial color={clipCol}    roughness={0.25} metalness={0.80} />;
+  // The one spinning clip (see SPIN_CLIP_ROW/COL below) gets its own
+  // glowing material + a bigger scale — a plain clip at normal size was
+  // too small/visually identical whichever way it faced to actually read
+  // as "spinning" from a distance (reported: "doesn't feel like it's doing
+  // something"). Cyan matches the wagon label's "live" accent color.
+  const mClipSpin = <meshStandardMaterial color={clipCol} roughness={0.25} metalness={0.80}
+    emissive="#00C8FF" emissiveIntensity={1.6} />;
 
   return (
     // Rotated 90° around Y so the rack shows a side view (its flat face
@@ -399,23 +406,25 @@ function Rack3D({ shade = false }) {
       {rowYs.map((y, ri) => colXs.map((x, ci) => {
         const isSpinClip = ri === SPIN_CLIP_ROW && ci === SPIN_CLIP_COL;
         const ClipWrapper = isSpinClip ? RotatingGroup : 'group';
+        const clipMat = isSpinClip ? mClipSpin : mClip;
         return (
-          <ClipWrapper key={`${ri}-${ci}`} position={[x, y - BAR_T * 0.5, 0]}>
+          <ClipWrapper key={`${ri}-${ci}`} position={[x, y - BAR_T * 0.5, 0]}
+            scale={isSpinClip ? 2.2 : 1}>
             {/* Saddle clip (mounts over the bar) */}
             <mesh position={[0, 0.007, 0]}>
-              <boxGeometry args={[0.026, 0.015, 0.022]} />{mClip}
+              <boxGeometry args={[0.026, 0.015, 0.022]} />{clipMat}
             </mesh>
             {/* Left prong of U-fork */}
             <mesh position={[-0.008, -0.019, 0]}>
-              <boxGeometry args={[0.005, 0.028, 0.007]} />{mClip}
+              <boxGeometry args={[0.005, 0.028, 0.007]} />{clipMat}
             </mesh>
             {/* Right prong of U-fork */}
             <mesh position={[0.008, -0.019, 0]}>
-              <boxGeometry args={[0.005, 0.028, 0.007]} />{mClip}
+              <boxGeometry args={[0.005, 0.028, 0.007]} />{clipMat}
             </mesh>
             {/* Bottom crosspiece */}
             <mesh position={[0, -0.033, 0]}>
-              <boxGeometry args={[0.022, 0.005, 0.007]} />{mClip}
+              <boxGeometry args={[0.022, 0.005, 0.007]} />{clipMat}
             </mesh>
           </ClipWrapper>
         );

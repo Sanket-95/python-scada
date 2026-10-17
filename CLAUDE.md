@@ -287,7 +287,14 @@ bug, or a wrong port — not a wrong protocol.
   rack's centre) its own independent `RotatingGroup` (default axis `'y'`,
   default speed) in place of the plain `<group>` every other clip uses — a
   dynamic `ClipWrapper` variable (`RotatingGroup` or the string `'group'`)
-  picks which one to render per clip in the same `.map()`. **Rack shows a
+  picks which one to render per clip in the same `.map()`. **The spin clip
+  is also scaled up 2.2× and given a glowing cyan-emissive material**
+  (`mClipSpin`, `#00C8FF` — matches the wagon label's "live" accent color)
+  instead of the plain `clipCol` every other clip uses — on request, after
+  a normal-sized clip spinning alone read as "not really doing anything"
+  from a normal viewing distance; size + a glow make the motion unmistakable
+  without reviving the whole-frame spin this was deliberately removed from.
+  **Rack shows a
   side view, not front-on** (on request — `Rack3D`'s own geometry (rail,
   posts, rows, clips) is built flat in its local X-Y plane, which faces the
   camera head-on by default; its root `<group>` now carries `rotation={[0,

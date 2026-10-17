@@ -360,7 +360,10 @@ function Rack3D({ shade = false }) {
   const mClip = <meshStandardMaterial color={clipCol}    roughness={0.25} metalness={0.80} />;
 
   return (
-    <group>
+    // Rotated 90° around Y so the rack shows a side view (its flat face
+    // turned to run front-to-back) instead of the flat front-on view its
+    // own geometry is built in (posts/rows laid out in the local X-Y plane).
+    <group rotation={[0, Math.PI / 2, 0]}>
       {/* ── Thick top mounting rail ── */}
       <mesh position={[0, hh + 0.020, 0]}>
         <boxGeometry args={[RW + 0.062, 0.038, 0.036]} />{mTop}

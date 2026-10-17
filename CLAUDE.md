@@ -287,7 +287,13 @@ bug, or a wrong port — not a wrong protocol.
   rack's centre) its own independent `RotatingGroup` (default axis `'y'`,
   default speed) in place of the plain `<group>` every other clip uses — a
   dynamic `ClipWrapper` variable (`RotatingGroup` or the string `'group'`)
-  picks which one to render per clip in the same `.map()`. **Testing aid, dev-only**: a small "▶ SIMULATION" button
+  picks which one to render per clip in the same `.map()`. **Rack shows a
+  side view, not front-on** (on request — `Rack3D`'s own geometry (rail,
+  posts, rows, clips) is built flat in its local X-Y plane, which faces the
+  camera head-on by default; its root `<group>` now carries `rotation={[0,
+  Math.PI / 2, 0]}` so the whole frame — including the one spinning clip,
+  which keeps spinning on its own local Y axis regardless — turns 90° to
+  show its side instead). **Testing aid, dev-only**: a small "▶ SIMULATION" button
   in the 3D view's top-right corner (next to the fullscreen toggle,
   `WagonScada3D.jsx`'s `toggleSimTest`) forces the first station + first
   wagon of EVERY line/track (`simCfg.tracks` — not just the very first one

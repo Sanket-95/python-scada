@@ -428,13 +428,19 @@ function tankFillGeometry(st, loadType) {
   return { chemH, chemY, loadItemY };
 }
 
-// Continuously spins its children around Y — used for the load item inside
-// a tank and the load a wagon carries, so they read as distinct, moving
-// objects rather than a static prop sitting in the scene.
-function RotatingGroup({ speed = 0.8, children, ...props }) {
+// Continuously spins its children — used for the load item inside a tank
+// and the load a wagon carries, so they read as distinct, moving objects
+// rather than a static prop sitting in the scene. axis='y' (default, used
+// for the upright basket/rack) spins like a turntable; axis='z' (used for
+// the barrel — see Barrel3D, whose cylinder is rotated so its length runs
+// along local Z, the depth axis facing the camera) spins the barrel around
+// its own horizontal centerline instead, front-loading-washing-machine
+// style — fixes the barrel visibly orbiting end-over-end instead of truly
+// spinning on request.
+function RotatingGroup({ speed = 0.8, axis = 'y', children, ...props }) {
   const ref = useRef();
   useFrame((_, dt) => {
-    if (ref.current) ref.current.rotation.y += speed * dt;
+    if (ref.current) ref.current.rotation[axis] += speed * dt;
   });
   return <group ref={ref} {...props}>{children}</group>;
 }
@@ -502,7 +508,7 @@ const Tank3D = memo(function Tank3D({ st, z, loadType = 'barrel', idx = 0, tankW
           up so it still reads clearly from a distance through the wall, and
           continuously rotating so it reads as a distinct moving object */}
       {st.hasLoad && (
-        <RotatingGroup position={[0, loadItemY, 0]} scale={[1.4, 1.4, 1.4]}>
+        <RotatingGroup position={[0, loadItemY, 0]} scale={[1.4, 1.4, 1.4]} axis={loadType === 'barrel' ? 'z' : 'y'}>
           <Load3D type={loadType} shade />
         </RotatingGroup>
       )}
@@ -639,7 +645,7 @@ function TankGroup3D({ stations, z, loadType = 'barrel', tankW = D.tankW, tankTa
                 emissive={chem.emissive} emissiveIntensity={st.isActive ? 0.55 : 0.30} />
             </mesh>
             {st.hasLoad && (
-              <RotatingGroup position={[0, loadItemY, 0]} scale={[1.4, 1.4, 1.4]}>
+              <RotatingGroup position={[0, loadItemY, 0]} scale={[1.4, 1.4, 1.4]} axis={loadType === 'barrel' ? 'z' : 'y'}>
                 <Load3D type={loadType} shade />
               </RotatingGroup>
             )}
@@ -932,7 +938,7 @@ function Wagon3D({ wagon, z, loadType = 'barrel' }) {
               clearly against the wagon, without touching the shared
               Load3D/Barrel3D geometry used elsewhere (tanks), and
               continuously rotating. */}
-          <RotatingGroup position={[0, armBotY, 0]} scale={[1.5, 1.5, 1.5]}>
+          <RotatingGroup position={[0, armBotY, 0]} scale={[1.5, 1.5, 1.5]} axis={loadType === 'barrel' ? 'z' : 'y'}>
             <Load3D type={loadType} shade={false} />
           </RotatingGroup>
         </>
@@ -1625,6 +1631,12 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   const [lastSceneView, setLastSceneView] = useState(() => initialView(pageSelection));
   const [sidebarOpen, setSidebarOpen]     = useState(true);
   const [isSceneFullscreen, setIsSceneFullscreen] = useState(false);
+  // TEST-ONLY — "Simulation" button on the 3D page (see toggleSimTest below).
+  // Forces one station + one wagon's load flag on/off so a rotating barrel
+  // is visible without needing a live PLC. Button only renders when
+  // !isFrozen (see filterNav's devOnly convention), so this never appears
+  // in a generated exe.
+  const [simTestOn, setSimTestOn] = useState(false);
   const [plcMode, setPlcMode] = useState(true); // AUTO/MANUAL — manual toggle for now, no real mode source yet
   const sceneFullscreenRef = useRef(null);
 
@@ -1861,6 +1873,20 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
 
   const { wagons, stations, setWagonTarget, snapWagonToTank, setWagonLoadFlag, setWagonMode, setStationHasLoad } = useWagonSimulation(simCfg);
   const { tags: grpcTags, connected: grpcConnected } = useTagSocket();
+
+  // TEST-ONLY — forces the first station + first wagon's load flag on/off
+  // via the exact same setters the live PLC tag effects use below, purely so
+  // the rotating barrel visual can be checked without a live PLC connected.
+  // Button that calls this only renders when !isFrozen (see the "Simulation"
+  // button in the 3D view) — never reachable in a generated exe.
+  const toggleSimTest = useCallback(() => {
+    const nextOn = !simTestOn;
+    setSimTestOn(nextOn);
+    const firstStationId = stations[0]?.id;
+    const firstWagonId = wagons[0]?.id;
+    if (firstStationId != null) setStationHasLoad(firstStationId, nextOn);
+    if (firstWagonId != null) setWagonLoadFlag(firstWagonId, nextOn);
+  }, [simTestOn, stations, wagons, setStationHasLoad, setWagonLoadFlag]);
 
   // Live PLC read: whenever a tank's configured tag name has a live value
   // (published continuously by the backend's PLC poller — see
@@ -2206,6 +2232,29 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
               >
                 {isSceneFullscreen ? '⊡' : '⛶'}
               </button>
+              {/* TEST-ONLY — forces a demo load onto the first station/wagon
+                  so the barrel rotation can be checked without a live PLC.
+                  Never shown in a generated exe (same devOnly gating as the
+                  App Builder sidebar item). */}
+              {!isFrozen && (
+                <button
+                  onClick={toggleSimTest}
+                  title="Testing only — force a demo load so the barrel rotation can be checked without a live PLC. Never appears in a generated exe."
+                  style={{
+                    position: 'absolute', top: 10, right: 52, zIndex: 20,
+                    height: 34, padding: '0 12px',
+                    background: simTestOn ? 'rgba(198,40,40,0.85)' : 'rgba(10,22,40,0.72)',
+                    border: `1px solid ${simTestOn ? '#E57373' : 'rgba(100,160,220,0.35)'}`,
+                    borderRadius: 6, color: simTestOn ? '#FFE0E0' : '#A8C8F0',
+                    cursor: 'pointer', fontSize: 12, fontWeight: 700, letterSpacing: 0.3,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    backdropFilter: 'blur(4px)',
+                    transition: 'background 0.15s, border-color 0.15s',
+                  }}
+                >
+                  {simTestOn ? '■ SIMULATION ON' : '▶ SIMULATION'}
+                </button>
+              )}
             </div>
           )}
           {view === 'config' && (

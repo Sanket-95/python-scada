@@ -264,8 +264,29 @@ bug, or a wrong port — not a wrong protocol.
 - **Hover tooltip**: multi-line (station name + each parameter + load number),
   enlarged font/padding on request. The 3D tank walls were made more transparent
   (opacity 0.32 → 0.18) and the in-tank/carried load items scaled up (1.4×/1.5×)
-  and given a continuous slow Y-axis rotation (`RotatingGroup`, ~0.8 rad/s) so a
-  load reads clearly from a distance.
+  and given a continuous slow rotation (`RotatingGroup`, ~0.8 rad/s, in
+  `WagonScada3D.jsx`) so a load reads clearly from a distance. `RotatingGroup`
+  takes an `axis` prop (`'y'` default — spins the upright basket/rack like a
+  turntable) — **the barrel specifically uses `axis='z'`** (on request, fixing
+  a reported bug: spinning a barrel around Y made it orbit end-over-end since
+  `Barrel3D`'s cylinder mesh is itself rotated so its length runs along local
+  Z, the depth axis facing the camera; Z is therefore the barrel's own
+  horizontal centerline — rotating around it spins the barrel on its own axis,
+  front-loading-washing-machine style, instead of swinging it around like a
+  propeller). All three shared `RotatingGroup` call sites (`Tank3D`,
+  `TankGroup3D`, `Wagon3D`'s standard 2-arm spreader) pick the axis with
+  `loadType === 'barrel' ? 'z' : 'y'`; the basket's own dedicated claw-gripper
+  `RotatingGroup` in `Wagon3D` is unaffected (always basket, stays on the
+  default Y axis). **Testing aid, dev-only**: a small "▶ SIMULATION" button
+  in the 3D view's top-right corner (next to the fullscreen toggle,
+  `WagonScada3D.jsx`'s `toggleSimTest`) forces the first station + first
+  wagon's load flag on/off via the exact same `setStationHasLoad`/
+  `setWagonLoadFlag` setters the live PLC tag effects use, purely so a
+  rotation fix can be eyeballed without a live PLC connected. Gated on
+  `!isFrozen` (same `devOnly` convention as the App Builder sidebar item —
+  see `filterNav`), so it never renders in a generated exe. If a future
+  rotation/visual tweak needs a quick way to force a visible load for
+  testing, reuse this button rather than adding a parallel mechanism.
 - **Sidebar nav**: two actual indent levels now (`item.depth`: 1 = child of the
   section heading, 2 = child of the nearest depth-1 item above it — the old
   `sub: true` boolean was dead code, replaced). Under "MIMIC SCREEN

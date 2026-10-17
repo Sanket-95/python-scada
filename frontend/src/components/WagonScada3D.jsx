@@ -1874,19 +1874,23 @@ function WagonScadaApp({ initialCfg, initialHeaderCfg, pageSelection, isFrozen }
   const { wagons, stations, setWagonTarget, snapWagonToTank, setWagonLoadFlag, setWagonMode, setStationHasLoad } = useWagonSimulation(simCfg);
   const { tags: grpcTags, connected: grpcConnected } = useTagSocket();
 
-  // TEST-ONLY — forces the first station + first wagon's load flag on/off
-  // via the exact same setters the live PLC tag effects use below, purely so
-  // the rotating barrel visual can be checked without a live PLC connected.
-  // Button that calls this only renders when !isFrozen (see the "Simulation"
-  // button in the 3D view) — never reachable in a generated exe.
+  // TEST-ONLY — forces the first station + first wagon of EVERY line/track
+  // (not just the very first one overall, which would only ever touch Line
+  // 1) on/off, via the exact same setters the live PLC tag effects use
+  // below, purely so the rotating barrel visual can be checked on every
+  // line without a live PLC connected. Button that calls this only renders
+  // when !isFrozen (see the "Simulation" button in the 3D view) — never
+  // reachable in a generated exe.
   const toggleSimTest = useCallback(() => {
     const nextOn = !simTestOn;
     setSimTestOn(nextOn);
-    const firstStationId = stations[0]?.id;
-    const firstWagonId = wagons[0]?.id;
-    if (firstStationId != null) setStationHasLoad(firstStationId, nextOn);
-    if (firstWagonId != null) setWagonLoadFlag(firstWagonId, nextOn);
-  }, [simTestOn, stations, wagons, setStationHasLoad, setWagonLoadFlag]);
+    simCfg.tracks.forEach(track => {
+      const stationId = track.stations[0]?.id;
+      const wagonId = track.wagonIds[0];
+      if (stationId != null) setStationHasLoad(stationId, nextOn);
+      if (wagonId != null) setWagonLoadFlag(wagonId, nextOn);
+    });
+  }, [simTestOn, simCfg, setStationHasLoad, setWagonLoadFlag]);
 
   // Live PLC read: whenever a tank's configured tag name has a live value
   // (published continuously by the backend's PLC poller — see

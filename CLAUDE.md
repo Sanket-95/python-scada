@@ -280,9 +280,12 @@ bug, or a wrong port — not a wrong protocol.
   default Y axis). **Testing aid, dev-only**: a small "▶ SIMULATION" button
   in the 3D view's top-right corner (next to the fullscreen toggle,
   `WagonScada3D.jsx`'s `toggleSimTest`) forces the first station + first
-  wagon's load flag on/off via the exact same `setStationHasLoad`/
-  `setWagonLoadFlag` setters the live PLC tag effects use, purely so a
-  rotation fix can be eyeballed without a live PLC connected. Gated on
+  wagon of EVERY line/track (`simCfg.tracks` — not just the very first one
+  overall, which would only ever touch Line 1; this was a bug in the first
+  version, reported as "line 2 simulation not working") on/off via the exact
+  same `setStationHasLoad`/`setWagonLoadFlag` setters the live PLC tag
+  effects use, purely so a rotation fix can be eyeballed on every line
+  without a live PLC connected. Gated on
   `!isFrozen` (same `devOnly` convention as the App Builder sidebar item —
   see `filterNav`), so it never renders in a generated exe. If a future
   rotation/visual tweak needs a quick way to force a visible load for

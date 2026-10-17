@@ -282,19 +282,21 @@ bug, or a wrong port — not a wrong protocol.
   choice to this session; a real multi-row hanger frame wouldn't rotate as a
   whole): those same 3 shared call sites also pass `speed={loadType ===
   'rack' ? 0 : 0.8}`, so a rack's outer `RotatingGroup` wrapper is inert —
-  the rail/posts/crossbars/41 other clips never move. `Rack3D` itself gives
-  just ONE hanger clip (`SPIN_CLIP_ROW`/`SPIN_CLIP_COL`, the clip nearest the
-  rack's centre) its own independent `RotatingGroup` (default axis `'y'`,
-  default speed) in place of the plain `<group>` every other clip uses — a
-  dynamic `ClipWrapper` variable (`RotatingGroup` or the string `'group'`)
-  picks which one to render per clip in the same `.map()`. **The spin clip
-  is also scaled up 2.2× and given a glowing cyan-emissive material**
-  (`mClipSpin`, `#00C8FF` — matches the wagon label's "live" accent color)
-  instead of the plain `clipCol` every other clip uses — on request, after
-  a normal-sized clip spinning alone read as "not really doing anything"
-  from a normal viewing distance; size + a glow make the motion unmistakable
-  without reviving the whole-frame spin this was deliberately removed from.
-  **Rack shows a
+  the rail/posts/crossbars never move. `Rack3D` itself gives the **entire
+  centre row** of hanger clips (`SPIN_CLIP_ROW`, row index 3 of 7 — grew
+  from just one clip to the whole row on request, after a single clip still
+  didn't read clearly) their own independent `RotatingGroup`s, at a faster
+  `SPIN_CLIP_SPEED` (2.5 rad/s, vs. the barrel/basket's default 0.8 — also
+  bumped up on the same request) in place of the plain `<group>` every
+  other-row clip uses — a dynamic `ClipWrapper` variable (`RotatingGroup` or
+  the string `'group'`) picks which one to render per clip in the same
+  `.map()`. **The spin-row clips are also scaled up 2.2× and given a
+  glowing cyan-emissive material** (`mClipSpin`, `#00C8FF` — matches the
+  wagon label's "live" accent color) instead of the plain `clipCol` every
+  other clip uses — on request, after a normal-sized clip spinning alone
+  read as "not really doing anything" from a normal viewing distance; size
+  + a glow make the motion unmistakable without reviving the whole-frame
+  spin this was deliberately removed from. **Rack shows a
   side view, not front-on** (on request — `Rack3D`'s own geometry (rail,
   posts, rows, clips) is built flat in its local X-Y plane, which faces the
   camera head-on by default; its root `<group>` now carries `rotation={[0,

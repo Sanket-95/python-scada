@@ -349,10 +349,12 @@ function Rack3D({ shade = false }) {
 
   const rowYs = [-0.192, -0.128, -0.064, 0, 0.064, 0.128, 0.192];
   const colXs = [-0.186, -0.111, -0.037, 0.037, 0.111, 0.186];
-  // The one hanger clip (nearest the rack's centre — row index 3 of 7 is
-  // y=0, col index 2 of 6 is the closer of the two centre columns) that
-  // spins in place — see the clip map below.
-  const SPIN_CLIP_ROW = 3, SPIN_CLIP_COL = 2;
+  // The whole centre row of hanger clips (row index 3 of 7 is y=0) spins in
+  // place, faster than the barrel/basket's default 0.8 rad/s — on request,
+  // after a single spinning clip still didn't read clearly — see the clip
+  // map below.
+  const SPIN_CLIP_ROW = 3;
+  const SPIN_CLIP_SPEED = 2.5;
 
   const mTop  = <meshStandardMaterial color={topRailCol} roughness={0.20} metalness={0.85} />;
   const mPost = <meshStandardMaterial color={postCol}    roughness={0.20} metalness={0.85} />;
@@ -398,18 +400,18 @@ function Rack3D({ shade = false }) {
         </mesh>
       ))}
 
-      {/* ── Individual hanger clips at each grid intersection — one clip
-          (near the rack's centre) spins continuously in place so the rack
-          still reads as a distinct, moving object, same as the barrel/
-          basket's RotatingGroup elsewhere; the rest of the frame — which
-          wouldn't realistically rotate as a whole — stays fixed. */}
+      {/* ── Individual hanger clips at each grid intersection — the whole
+          centre row spins continuously in place so the rack clearly reads
+          as a distinct, moving object, same as the barrel/basket's
+          RotatingGroup elsewhere; the rest of the frame — which wouldn't
+          realistically rotate as a whole — stays fixed. */}
       {rowYs.map((y, ri) => colXs.map((x, ci) => {
-        const isSpinClip = ri === SPIN_CLIP_ROW && ci === SPIN_CLIP_COL;
+        const isSpinClip = ri === SPIN_CLIP_ROW;
         const ClipWrapper = isSpinClip ? RotatingGroup : 'group';
         const clipMat = isSpinClip ? mClipSpin : mClip;
         return (
           <ClipWrapper key={`${ri}-${ci}`} position={[x, y - BAR_T * 0.5, 0]}
-            scale={isSpinClip ? 2.2 : 1}>
+            scale={isSpinClip ? 2.2 : 1} speed={isSpinClip ? SPIN_CLIP_SPEED : undefined}>
             {/* Saddle clip (mounts over the bar) */}
             <mesh position={[0, 0.007, 0]}>
               <boxGeometry args={[0.026, 0.015, 0.022]} />{clipMat}

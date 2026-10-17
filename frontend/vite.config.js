@@ -65,6 +65,7 @@ export default defineConfig({
       '/api/build-plc-test-exe': 'http://127.0.0.1:50054',
       '/api/db-test-connection': 'http://127.0.0.1:50054',
       '/api/health': 'http://127.0.0.1:50054',
+      '/api/master-config': 'http://127.0.0.1:50054',
     },
   },
 })

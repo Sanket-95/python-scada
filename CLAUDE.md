@@ -46,7 +46,9 @@ savedUserConfig.json / savedPlcConfig.json <--- config_store.py ------+
 ## Backend modules (`backend-fastapi/`)
 
 - `main.py` — FastAPI app, WebSocket tag stream, all REST endpoints (config
-  get/save, PLC connection test, exe generation).
+  get/save, PLC connection test, exe generation). Also
+  `GET /api/master-config/export` + `POST /api/master-config/import` — see
+  "Master Config export/import" under Feature notes.
 - `plc_publisher.py` — the live polling loop. Holds **one persistent PLC
   connection**, reused across polls (critical — see Gotchas). Reads tank-load tags,
   wagon-location tags, wagon lift/mode tags, station parameter tags, and station
@@ -69,7 +71,17 @@ savedUserConfig.json / savedPlcConfig.json <--- config_store.py ------+
 - `plc_clients/siemens_client.py`, `omron_client.py` — Siemens S7 (via `snap7`) and
   Omron FINS (via `finscommand`) clients, much simpler, no known issues.
 - `config_store.py` — the JSON config read/write + exe-seed-copy logic described
-  above.
+  above. `write_json` passes `ensure_ascii=False` to `json.dumps` — without it,
+  any non-ASCII character already saved (e.g. a station parameter's `°C` unit)
+  gets escaped to `°C` on the next write through this function. Same value
+  once parsed, but it churns the committed `saved*.json` files with a noisy diff
+  for no real change, and would otherwise diverge from how the frontend's own
+  `JSON.stringify` (used by `vite.config.js`'s dev-mode `jsonFileApi` middleware,
+  which handles these same files' GET/POST in dev) writes them — that path never
+  escapes. Found via the Master Config export/import feature below, which is the
+  first thing to round-trip a file through this function outside of a normal
+  save (an exe's own saves, and the new Import below, always go through this
+  Python path, never the dev-only JS one).
 - `tag_store.py` — in-memory tag store + WebSocket fan-out (simple pub/sub, replays
   the last batch to a newly-connected client).
 - `exe_builder.py` — builds the **full app exe** (frontend + backend bundled by
@@ -499,6 +511,27 @@ bug, or a wrong port — not a wrong protocol.
   a dedicated function that runs after `store.set_many(batch)`, and give it its
   own per-entity (not per-station) config panel rather than forcing it into the
   generic "+Add Column" one-address-one-datatype shape.
+- **Master Config export/import** (`AppBuilderPage.jsx`): added because this app
+  is now expected to be used across multiple client projects over time, and the
+  only thing kept from an older one might be its built exe — with no way to get
+  back in and edit it further. Bundles the exact same 5 files
+  `_register_config_route`/`exe_builder.py` already treat as "everything that
+  can ever end up in an exe" (`savedUserConfig/HeaderConfig/PageSelection/
+  PlcConfig/DbConfig.json` — covers every line/tank/wagon/tag, PLC connection, DB
+  connection, branding, and page selection) into one downloadable JSON via
+  `GET /api/master-config/export`, and restores all 5 from that same shape via
+  `POST /api/master-config/import` (`main.py`, `MASTER_CONFIG_FILES`). The
+  "PROJECT CONFIG BACKUP" panel at the top of the App Builder page has the two
+  buttons — Export triggers a browser download named
+  `<client name>-master-config-<date>.json`; Import (after a
+  `window.confirm`, since it overwrites the current project's config) POSTs the
+  picked file's contents straight through, then reloads the page so every
+  config-consuming part of the app re-reads the freshly-imported files (same
+  `loadXFromFile() ?? loadX()`-prefers-file pattern every config module already
+  uses — no extra localStorage-sync code needed here). `/api/master-config` is
+  in `vite.config.js`'s plain proxy list (not the `jsonFileApi` list), since —
+  like exe generation — this needs the actual Python multi-file bundling logic,
+  not something to reimplement in Node.
 
 ## Gotchas (don't repeat these)
 
@@ -566,6 +599,17 @@ bug, or a wrong port — not a wrong protocol.
    instead of a stale snapshot. **Any new `handleSave*` added to this component
    must follow the same `userCfgRef.current` pattern**, especially if its page's
    Save button might ever call it alongside another handler.
+8. **`config_store.py`'s `write_json` must pass `ensure_ascii=False` to
+   `json.dumps`.** Without it, any non-ASCII character in already-saved config
+   (e.g. a station parameter's `°C` unit) gets escaped to `°C` the next
+   time this Python path writes that file — same value once parsed, but a
+   large, noisy diff on the committed `saved*.json` files for no real change,
+   and inconsistent with how the frontend's own `JSON.stringify` (used by
+   `vite.config.js`'s dev-mode `jsonFileApi` middleware, which normally handles
+   these same files' GET/POST in dev) writes them — that path never escapes.
+   Surfaced while building Master Config export/import (see Feature notes),
+   the first thing to round-trip a file through this function outside of a
+   normal exe save.
 
 ## Dev workflow
 

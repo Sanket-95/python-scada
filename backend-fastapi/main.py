@@ -14,6 +14,8 @@ frontend already expects, so the frontend needs no changes:
   GET/POST /api/page-selection       which app pages are switched on
   GET/POST /api/plc-config           saved PLC brand/connection info (App Builder gate + exe seed)
   GET/POST /api/db-config            saved SQL Server connection info (Part Number column lookup)
+  GET  /api/master-config/export     every saved config file above, bundled into one JSON (backup)
+  POST /api/master-config/import     restores that bundle, writing each file back
   POST /api/db-test-connection       live connect check against that SQL Server
   POST /api/generate-app-exe         build a standalone exe of this whole app
   GET  /api/generate-app-exe/{id}/status    poll a build started above
@@ -38,6 +40,7 @@ import mimetypes
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -187,6 +190,49 @@ _register_config_route("/api/header-config", "savedHeaderConfig.json")
 _register_config_route("/api/page-selection", "savedPageSelection.json")
 _register_config_route("/api/plc-config", "savedPlcConfig.json")
 _register_config_route("/api/db-config", "savedDbConfig.json")
+
+
+# ── Master config — export/import ALL saved configuration as one file ───────
+# Bundles every file _register_config_route manages above (the exact same
+# set exe_builder.py seeds into a generated exe, so this covers everything
+# that can ever end up in one — lines/tanks/wagons/every tag, PLC
+# connection, DB connection, branding, page selection) into one JSON, so a
+# whole project's setup can be backed up/restored without needing to keep
+# the original exe around. See AppBuilderPage.jsx's Export/Import Master
+# Config buttons — this is what makes working on multiple client projects
+# over time safe: export one before moving to the next, import it back to
+# resume work on an older one.
+MASTER_CONFIG_FILES = [
+    "savedUserConfig.json",
+    "savedHeaderConfig.json",
+    "savedPageSelection.json",
+    "savedPlcConfig.json",
+    "savedDbConfig.json",
+]
+
+
+@app.get("/api/master-config/export")
+def export_master_config():
+    return {
+        "formatVersion": 1,
+        "exportedAt": datetime.now(timezone.utc).isoformat(),
+        "files": {name: config_store.load_json(name) for name in MASTER_CONFIG_FILES},
+    }
+
+
+@app.post("/api/master-config/import")
+async def import_master_config(request: Request):
+    try:
+        data = await request.json()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="body is not valid JSON")
+    files = data.get("files") if isinstance(data, dict) else None
+    if not isinstance(files, dict):
+        raise HTTPException(status_code=400, detail='expected a {"files": {...}} master config export')
+    written = [name for name in MASTER_CONFIG_FILES if name in files]
+    for name in written:
+        config_store.write_json(name, files[name])
+    return {"ok": True, "written": written}
 
 
 # ── PLC Connection Test — live connect check against a real PLC, straight

@@ -63,7 +63,15 @@ def write_json(filename: str, data) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / filename
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    # ensure_ascii=False — otherwise json.dumps escapes any non-ASCII
+    # character (e.g. a station parameter's "°C" unit) to °C. Same
+    # value once parsed, but it churns the file's bytes with no real
+    # change, and diverges from how the frontend's own JSON.stringify
+    # (used by vite.config.js's dev-mode jsonFileApi middleware) writes
+    # these same files — which never escapes. Keeps the two paths
+    # byte-for-byte consistent and avoids noisy git diffs on these
+    # intentionally-committed saved*.json files.
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     os.replace(tmp, path)  # never leaves a half-written config behind
 
 

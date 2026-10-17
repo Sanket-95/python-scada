@@ -25,7 +25,9 @@ export default function AppBuilderPage({ onNavigateToPlcTest }) {
   const [clientName, setClientName] = useState('');
   const [build, setBuild] = useState(null); // null | { status, buildId, error, exeName, log }
   const [plcCfg, setPlcCfg] = useState(null); // null while loading
+  const [masterMsg, setMasterMsg] = useState(null); // null | { ok, text }
   const pollRef = useRef(null);
+  const importInputRef = useRef(null);
 
   useEffect(() => {
     loadPageSelectionFromServer().then(serverSel => {
@@ -87,6 +89,62 @@ export default function AppBuilderPage({ onNavigateToPlcTest }) {
     }, 3000);
   };
 
+  // ── Master config backup — exports/imports EVERY saved config file in one
+  // JSON (see main.py's /api/master-config/export|import — the same 5 files
+  // exe_builder.py seeds into an exe), so a whole project's setup (lines/
+  // tanks/wagons/every tag, PLC/DB connection, branding, page selection)
+  // survives even if the only thing kept from an old project was its exe.
+  const exportMasterConfig = async () => {
+    setMasterMsg(null);
+    try {
+      const res = await fetch('/api/master-config/export');
+      if (!res.ok) throw new Error('export failed');
+      const bundle = await res.json();
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const stamp = new Date().toISOString().slice(0, 10);
+      const safeName = (clientName || 'project').trim().replace(/[^a-z0-9_-]+/gi, '_') || 'project';
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeName}-master-config-${stamp}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setMasterMsg({ ok: true, text: 'Exported.' });
+    } catch {
+      setMasterMsg({ ok: false, text: 'Export failed — is the backend running?' });
+    }
+  };
+
+  const importMasterConfig = async file => {
+    setMasterMsg(null);
+    let bundle;
+    try {
+      bundle = JSON.parse(await file.text());
+    } catch {
+      setMasterMsg({ ok: false, text: 'That file is not valid JSON.' });
+      return;
+    }
+    if (!bundle || typeof bundle.files !== 'object') {
+      setMasterMsg({ ok: false, text: 'That file is not a master config export (missing "files").' });
+      return;
+    }
+    if (!window.confirm('This replaces the CURRENT project\'s saved configuration (lines/tanks/wagons, tags, PLC/DB connection, branding, page selection) with the imported file. Continue?')) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/master-config/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bundle),
+      });
+      if (!res.ok) throw new Error('import failed');
+      setMasterMsg({ ok: true, text: 'Imported — reloading…' });
+      setTimeout(() => window.location.reload(), 700);
+    } catch {
+      setMasterMsg({ ok: false, text: 'Import failed — is the backend running?' });
+    }
+  };
+
   return (
     <div style={{
       width: '100%', height: '100%', overflow: 'hidden', background: T.pageBg,
@@ -112,6 +170,38 @@ export default function AppBuilderPage({ onNavigateToPlcTest }) {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          <div style={{
+            background: T.panelBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: 20,
+            display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div style={{ minWidth: 220, maxWidth: 480 }}>
+              <div style={{ fontSize: 10.5, color: T.textDim, letterSpacing: 0.5, marginBottom: 4 }}>PROJECT CONFIG BACKUP</div>
+              <div style={{ fontSize: 12, color: T.textLt }}>
+                Export every saved setting for this project — lines/tanks/wagons, every tag address,
+                PLC &amp; DB connection, branding, page selection — into one file. Import it later (on
+                this machine or a different one) to bring a project's full setup back for editing,
+                even if the only thing you kept was its exe.
+              </div>
+              {masterMsg && (
+                <div style={{ fontSize: 11.5, fontWeight: 700, marginTop: 6, color: masterMsg.ok ? T.ok : T.danger }}>
+                  {masterMsg.ok ? '✔' : '✖'} {masterMsg.text}
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+              <button onClick={exportMasterConfig} style={ghostBtn()}>⬇ Export Master Config</button>
+              <button onClick={() => importInputRef.current?.click()} style={ghostBtn()}>⬆ Import Master Config</button>
+              <input
+                ref={importInputRef} type="file" accept="application/json,.json" style={{ display: 'none' }}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  e.target.value = ''; // so picking the same file again still fires onChange
+                  if (file) importMasterConfig(file);
+                }}
+              />
+            </div>
+          </div>
 
           <div style={{
             background: T.panelBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: 20,

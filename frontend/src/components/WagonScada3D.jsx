@@ -349,6 +349,10 @@ function Rack3D({ shade = false }) {
 
   const rowYs = [-0.192, -0.128, -0.064, 0, 0.064, 0.128, 0.192];
   const colXs = [-0.186, -0.111, -0.037, 0.037, 0.111, 0.186];
+  // The one hanger clip (nearest the rack's centre — row index 3 of 7 is
+  // y=0, col index 2 of 6 is the closer of the two centre columns) that
+  // spins in place — see the clip map below.
+  const SPIN_CLIP_ROW = 3, SPIN_CLIP_COL = 2;
 
   const mTop  = <meshStandardMaterial color={topRailCol} roughness={0.20} metalness={0.85} />;
   const mPost = <meshStandardMaterial color={postCol}    roughness={0.20} metalness={0.85} />;
@@ -384,27 +388,35 @@ function Rack3D({ shade = false }) {
         </mesh>
       ))}
 
-      {/* ── Individual hanger clips at each grid intersection ── */}
-      {rowYs.map((y, ri) => colXs.map((x, ci) => (
-        <group key={`${ri}-${ci}`} position={[x, y - BAR_T * 0.5, 0]}>
-          {/* Saddle clip (mounts over the bar) */}
-          <mesh position={[0, 0.007, 0]}>
-            <boxGeometry args={[0.026, 0.015, 0.022]} />{mClip}
-          </mesh>
-          {/* Left prong of U-fork */}
-          <mesh position={[-0.008, -0.019, 0]}>
-            <boxGeometry args={[0.005, 0.028, 0.007]} />{mClip}
-          </mesh>
-          {/* Right prong of U-fork */}
-          <mesh position={[0.008, -0.019, 0]}>
-            <boxGeometry args={[0.005, 0.028, 0.007]} />{mClip}
-          </mesh>
-          {/* Bottom crosspiece */}
-          <mesh position={[0, -0.033, 0]}>
-            <boxGeometry args={[0.022, 0.005, 0.007]} />{mClip}
-          </mesh>
-        </group>
-      )))}
+      {/* ── Individual hanger clips at each grid intersection — one clip
+          (near the rack's centre) spins continuously in place so the rack
+          still reads as a distinct, moving object, same as the barrel/
+          basket's RotatingGroup elsewhere; the rest of the frame — which
+          wouldn't realistically rotate as a whole — stays fixed. */}
+      {rowYs.map((y, ri) => colXs.map((x, ci) => {
+        const isSpinClip = ri === SPIN_CLIP_ROW && ci === SPIN_CLIP_COL;
+        const ClipWrapper = isSpinClip ? RotatingGroup : 'group';
+        return (
+          <ClipWrapper key={`${ri}-${ci}`} position={[x, y - BAR_T * 0.5, 0]}>
+            {/* Saddle clip (mounts over the bar) */}
+            <mesh position={[0, 0.007, 0]}>
+              <boxGeometry args={[0.026, 0.015, 0.022]} />{mClip}
+            </mesh>
+            {/* Left prong of U-fork */}
+            <mesh position={[-0.008, -0.019, 0]}>
+              <boxGeometry args={[0.005, 0.028, 0.007]} />{mClip}
+            </mesh>
+            {/* Right prong of U-fork */}
+            <mesh position={[0.008, -0.019, 0]}>
+              <boxGeometry args={[0.005, 0.028, 0.007]} />{mClip}
+            </mesh>
+            {/* Bottom crosspiece */}
+            <mesh position={[0, -0.033, 0]}>
+              <boxGeometry args={[0.022, 0.005, 0.007]} />{mClip}
+            </mesh>
+          </ClipWrapper>
+        );
+      }))}
     </group>
   );
 }
@@ -506,9 +518,12 @@ const Tank3D = memo(function Tank3D({ st, z, loadType = 'barrel', idx = 0, tankW
 
       {/* Load item inside tank — type matches the line's load type, scaled
           up so it still reads clearly from a distance through the wall, and
-          continuously rotating so it reads as a distinct moving object */}
+          continuously rotating so it reads as a distinct moving object.
+          A rack's outer frame stays put (speed=0) — only its one hanger
+          clip spins, see Rack3D's own RotatingGroup. */}
       {st.hasLoad && (
-        <RotatingGroup position={[0, loadItemY, 0]} scale={[1.4, 1.4, 1.4]} axis={loadType === 'barrel' ? 'z' : 'y'}>
+        <RotatingGroup position={[0, loadItemY, 0]} scale={[1.4, 1.4, 1.4]}
+          axis={loadType === 'barrel' ? 'z' : 'y'} speed={loadType === 'rack' ? 0 : 0.8}>
           <Load3D type={loadType} shade />
         </RotatingGroup>
       )}
@@ -645,7 +660,8 @@ function TankGroup3D({ stations, z, loadType = 'barrel', tankW = D.tankW, tankTa
                 emissive={chem.emissive} emissiveIntensity={st.isActive ? 0.55 : 0.30} />
             </mesh>
             {st.hasLoad && (
-              <RotatingGroup position={[0, loadItemY, 0]} scale={[1.4, 1.4, 1.4]} axis={loadType === 'barrel' ? 'z' : 'y'}>
+              <RotatingGroup position={[0, loadItemY, 0]} scale={[1.4, 1.4, 1.4]}
+                axis={loadType === 'barrel' ? 'z' : 'y'} speed={loadType === 'rack' ? 0 : 0.8}>
                 <Load3D type={loadType} shade />
               </RotatingGroup>
             )}
@@ -937,8 +953,10 @@ function Wagon3D({ wagon, z, loadType = 'barrel' }) {
           {/* Load (barrel / rack) — scaled up so a carried load reads
               clearly against the wagon, without touching the shared
               Load3D/Barrel3D geometry used elsewhere (tanks), and
-              continuously rotating. */}
-          <RotatingGroup position={[0, armBotY, 0]} scale={[1.5, 1.5, 1.5]} axis={loadType === 'barrel' ? 'z' : 'y'}>
+              continuously rotating (a rack's outer frame stays put —
+              speed=0 — only its one hanger clip spins, see Rack3D). */}
+          <RotatingGroup position={[0, armBotY, 0]} scale={[1.5, 1.5, 1.5]}
+            axis={loadType === 'barrel' ? 'z' : 'y'} speed={loadType === 'rack' ? 0 : 0.8}>
             <Load3D type={loadType} shade={false} />
           </RotatingGroup>
         </>

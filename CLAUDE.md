@@ -277,7 +277,17 @@ bug, or a wrong port — not a wrong protocol.
   `TankGroup3D`, `Wagon3D`'s standard 2-arm spreader) pick the axis with
   `loadType === 'barrel' ? 'z' : 'y'`; the basket's own dedicated claw-gripper
   `RotatingGroup` in `Wagon3D` is unaffected (always basket, stays on the
-  default Y axis). **Testing aid, dev-only**: a small "▶ SIMULATION" button
+  default Y axis). **Rack spins only one small hanger clip, not the whole
+  frame** (on request — user didn't know/care which exact part, left the
+  choice to this session; a real multi-row hanger frame wouldn't rotate as a
+  whole): those same 3 shared call sites also pass `speed={loadType ===
+  'rack' ? 0 : 0.8}`, so a rack's outer `RotatingGroup` wrapper is inert —
+  the rail/posts/crossbars/41 other clips never move. `Rack3D` itself gives
+  just ONE hanger clip (`SPIN_CLIP_ROW`/`SPIN_CLIP_COL`, the clip nearest the
+  rack's centre) its own independent `RotatingGroup` (default axis `'y'`,
+  default speed) in place of the plain `<group>` every other clip uses — a
+  dynamic `ClipWrapper` variable (`RotatingGroup` or the string `'group'`)
+  picks which one to render per clip in the same `.map()`. **Testing aid, dev-only**: a small "▶ SIMULATION" button
   in the 3D view's top-right corner (next to the fullscreen toggle,
   `WagonScada3D.jsx`'s `toggleSimTest`) forces the first station + first
   wagon of EVERY line/track (`simCfg.tracks` — not just the very first one

@@ -532,6 +532,16 @@ bug, or a wrong port — not a wrong protocol.
   in `vite.config.js`'s plain proxy list (not the `jsonFileApi` list), since —
   like exe generation — this needs the actual Python multi-file bundling logic,
   not something to reimplement in Node.
+  **STANDING RULE — keep this in sync on every future config change**: any
+  time a change adds a new persisted config *file* (not just a new field
+  inside an existing one), add it to `MASTER_CONFIG_FILES` in `main.py` too,
+  the same moment it's added to `_register_config_route` and to
+  `exe_builder.py`'s seed list — all three must always list the exact same
+  set of files, or Export silently omits something a generated exe would
+  otherwise carry, defeating the whole point of this feature. A new *field*
+  inside an already-listed file (e.g. another key in `userCfg`) needs no
+  change here — it's already covered since the whole file is exported
+  wholesale, not field-by-field.
 
 ## Gotchas (don't repeat these)
 

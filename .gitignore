@@ -1,0 +1,5 @@
+# Master Config exports (AppBuilderPage.jsx's "⬇ Export Master Config" button)
+# contain the real DB password from savedDbConfig.json in plaintext — never
+# committed. This is where the browser's default download folder happens to
+# land them for this project.
+export/
